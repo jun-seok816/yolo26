@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./DatasetLoaderPage.scss";
-import { Main } from "@jsLib/class/Main_class";
+import { Main } from "@jsLib/class/Main";
+import { Upload } from "@jsLib/class/Upload";
 
 type SplitType = "train" | "valid" | "test" | "unknown";
 
@@ -50,8 +51,10 @@ function formatFileSize(bytes: number): string {
 }
 
 class DataSet extends Main {
+  public pt_upload : Upload;
   constructor() { 
     super();
+    this.pt_upload = new Upload();
   }
 }
 
