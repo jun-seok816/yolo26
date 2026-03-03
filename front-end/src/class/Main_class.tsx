@@ -1,8 +1,4 @@
-import axios from "axios";
 import React, { RefObject, useEffect } from "react";
-import { ToastContainer, toast } from "react-toastify";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
 
 export class Main {
   private iv_UpdateData!: React.Dispatch<React.SetStateAction<object>>;
@@ -13,7 +9,6 @@ export class Main {
     return this.iv_RenderCount;
   }
 
-  static iv_Swal = withReactContent(Swal);
   constructor() {}
 
   //                                                     +------------------------------
@@ -103,60 +98,4 @@ export class Main {
     this.iv_navigate(p_path);
   }
 
-  /**
-   *
-   * @param p_text 토스트에 띄울 메세지
-   */
-  public static im_toast(
-    p_text: string,
-    p_property: "info" | "error" | "success" | "warn"
-  ): void {
-    toast[p_property](p_text);
-  }
-
-  public static im_alertMsg(msg: string) {
-    return this.iv_Swal.fire({
-      title: <span>{msg}</span>,
-      background: "#f3f7fa",
-      color: "#24262b",
-      confirmButtonColor: "#6A8BF0",
-      cancelButtonColor: "#3b4044",
-    });
-  }
-
-  public static im_askYesOrNoToUser(
-    msg: string,
-    submsg?: string
-  ): Promise<boolean> {
-    return new Promise((res, rej) => {
-      try {
-        this.iv_Swal
-          .fire({
-            title: <span className="mt-3 mb-3">알림</span>,
-            html: (
-              <div className="d-flex flex-column gap-2">
-                <p>{msg}</p>
-                <span>{submsg}</span>
-              </div>
-            ),
-            showCancelButton: true,
-            background: "#f3f7fa",
-            color: "#454545",
-            confirmButtonColor: "#6A8BF0",
-            cancelButtonColor: "#3b4044",
-            confirmButtonText: "네",
-            cancelButtonText: "아니요",
-          })
-          .then((result) => {
-            if (result.value) {
-              res(true);
-            } else {
-              res(false);
-            }
-          });
-      } catch (err) {
-        rej(false);
-      }
-    });
-  }
 }

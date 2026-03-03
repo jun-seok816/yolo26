@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./DatasetLoaderPage.scss";
+import { Main } from "@jsLib/class/Main_class";
 
 type SplitType = "train" | "valid" | "test" | "unknown";
 
@@ -48,7 +49,20 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+class DataSet extends Main {
+  constructor() { 
+    super();
+  }
+}
+
 export default function DatasetLoaderPage() {
+  const [lv_Obj] = useState(() => {
+    return new DataSet();
+  });
+
+  lv_Obj.im_Prepare_Hooks(async () => {
+   
+  });
   const directoryInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [images, setImages] = useState<LoadedImage[]>([]);
