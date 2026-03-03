@@ -1,0 +1,95 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const app = (0, express_1.default)();
+const body_parser_1 = __importDefault(require("body-parser"));
+const path_1 = __importDefault(require("path"));
+const mysql2_1 = __importDefault(require("mysql2"));
+const express_session_1 = __importDefault(require("express-session"));
+var MySQLStore = require("express-mysql-session")(express_session_1.default);
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const dotenv_1 = __importDefault(require("dotenv"));
+const db_1 = __importDefault(require("./db"));
+const lv_Db = new db_1.default();
+// .env 파일에서 환경 변수 로드
+dotenv_1.default.config();
+const gf_cs = (req, res, next) => {
+    if (!req.session || !req.session.userId) {
+        res.status(401).json({ err: true, msg: "세션 만료" });
+    }
+    else {
+        next();
+    }
+};
+process._myApp = {
+    db: mysql2_1.default.createPool(lv_Db.pt_Data.DB),
+    checkSession: gf_cs,
+};
+//https://expressjs.com/ko/starter/static-files.html s
+app.set("puplic", path_1.default.join(__dirname, "../build"));
+app.use(express_1.default.static(app.settings.puplic));
+app.use((0, cookie_parser_1.default)());
+var sessionStore = new MySQLStore(lv_Db.pt_Data.DB);
+const sessionMiddleware = (0, express_session_1.default)({
+    secret: "subscribe_loutbtbahah4281!@",
+    resave: true,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+        maxAge: 24 * 60 * 60 * 1000 * 7, // 24 hours
+    },
+});
+app.use(sessionMiddleware);
+app.use("/data", express_1.default.static(path_1.default.join(__dirname, "../../data")));
+app.use("/assets", //  /assets/* 요청
+express_1.default.static(path_1.default.join(__dirname, "../assets")));
+// ② React 번들의 정적 파일
+app.use(express_1.default.static(path_1.default.join(__dirname, "../build"), {
+    index: false, // index.html 은 직접 라우트에서 전송
+}));
+const portoneWebhook_1 = __importDefault(require("./router/portoneWebhook"));
+app.use("/pw", portoneWebhook_1.default);
+//https://www.npmjs.com/package/body-parser
+app.use(body_parser_1.default.json({ limit: "100mb" }));
+app.use(body_parser_1.default.urlencoded({ limit: "100mb", extended: false }));
+const featureRouter_1 = require("./router/featureRouter");
+app.use((0, featureRouter_1.featureRouter)());
+const subscriptionRouter_1 = __importDefault(require("./router/subscriptionRouter"));
+app.use("/subscription", subscriptionRouter_1.default);
+const loginRouter_1 = __importDefault(require("./router/loginRouter"));
+app.use("/login", loginRouter_1.default);
+const paymentRouter_1 = __importDefault(require("./router/paymentRouter"));
+app.use("/pay", paymentRouter_1.default);
+app.use((err, req, res, next) => {
+    // 이미 헤더가 전송됐다면 Express 기본 처리에 맡김
+    if (res.headersSent) {
+        return;
+    }
+    // 로그 남기기
+    console.error(err);
+    // 커스텀 에러에 statusCode 있으면 사용, 없으면 500
+    const status = err.statusCode ?? 500;
+    res.status(status).json({
+        err: true,
+        msg: "서버 오류가 발생했습니다.",
+    });
+});
+// ⑤ React SPA 용 catch‑all
+app.get("*", (_, res) => {
+    res.sendFile(path_1.default.join(__dirname, "../build/index.html"));
+});
+console.log("[routes]", app._router.stack
+    .filter((l) => l.route)
+    .map((l) => `${Object.keys(l.route.methods)[0].toUpperCase()} ${l.route.path}`));
+const server = app
+    .listen(3002, () => {
+    console.log(`Example app listening on port ${3002}`);
+})
+    .setTimeout(12000000);
+server.keepAliveTimeout = 300; // Keep-Alive 연결 제한 시간
+server.headersTimeout = 11000; // 헤더 대기 시간
+exports.default = app;
+//# sourceMappingURL=web.js.map
