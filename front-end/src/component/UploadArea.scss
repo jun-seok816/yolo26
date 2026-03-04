@@ -1,0 +1,87 @@
+.upload-card {
+  width: min(360px, 100%);
+  border: 1px solid #d7dbe2;
+  border-radius: 12px;
+  background: #eceff3;
+  padding: 18px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.upload-card.is-drag-over {
+  border-color: #8da5cc;
+  background: #e4e9f1;
+  box-shadow: 0 0 0 3px rgba(77, 108, 158, 0.15);
+}
+
+.upload-card__icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #d9dde5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-card__icon {
+  font-size: 30px;
+  line-height: 1;
+  color: #5c667a;
+}
+
+.upload-card__title {
+  margin: 14px 0 12px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #1d2636;
+  line-height: 1.2;
+}
+
+.upload-card__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.upload-card__actions button {
+  border: 1px solid #9ca8bb;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374152;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.upload-card__actions button:hover {
+  background: #ffffff;
+  border-color: #7f8da4;
+}
+
+.upload-card__button-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .upload-card__title {
+    font-size: 15px;
+  }
+
+  .upload-card__actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
