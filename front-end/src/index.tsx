@@ -1,12 +1,13 @@
 import React from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { createRoot } from "react-dom/client";
 import DatasetLoaderPage from "./component/DatasetLoaderPage";
 
 export default function Root() {
   return (
     <Routes>
-      <Route path="/" element={<DatasetLoaderPage />} />
+      <Route path="/" element={<Navigate to="/upload" replace />} />
+      <Route path="/upload" element={<DatasetLoaderPage />} />
     </Routes>
   );
 }
