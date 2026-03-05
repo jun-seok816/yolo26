@@ -43,11 +43,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
   }, [p_workspace]);
 
   const lv_images = p_workspace.pt_images;
-  const lv_currentImage = p_workspace.pt_currentImage;
-  const lv_currentBoxes = p_workspace.pt_currentBoxes;
-  const lv_selectedBox = p_workspace.pt_selectedBox;
-  const lv_selectedBoxNormalized = p_workspace.pt_selectedBoxNormalized;
-  const lv_naturalSize = p_workspace.pt_naturalSize;
 
   return (
     <section className="bbox-workspace">
@@ -140,33 +135,23 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
 
       <div className="bbox-workspace__meta-grid">
         <p>
-          <strong>현재 경로:</strong> {lv_currentImage?.relativePath || "-"}
+          <strong>단축키 안내</strong>
         </p>
         <p>
-          <strong>이미지 크기:</strong>{" "}
-          {lv_naturalSize.width > 0 && lv_naturalSize.height > 0
-            ? `${lv_naturalSize.width} x ${lv_naturalSize.height}`
-            : "-"}
+          <strong>드로잉:</strong> 빈 영역 드래그
         </p>
         <p>
-          <strong>박스 수:</strong> 현재 {lv_currentBoxes.length}개 / 전체 {p_workspace.pt_totalBoxCount}개
+          <strong>겹쳐 그리기:</strong> <kbd>Shift</kbd> + 드래그
         </p>
         <p>
-          <strong>작업 가이드:</strong> 드래그로 박스 생성, 박스 내부 드래그로 이동
+          <strong>박스 이동:</strong> 박스 내부 드래그
         </p>
-        {lv_selectedBox && (
-          <p className="bbox-workspace__meta-highlight">
-            <strong>선택 박스(px):</strong> x={lv_selectedBox.x.toFixed(1)} y={lv_selectedBox.y.toFixed(1)} w=
-            {lv_selectedBox.w.toFixed(1)} h={lv_selectedBox.h.toFixed(1)}
-          </p>
-        )}
-        {lv_selectedBoxNormalized && (
-          <p className="bbox-workspace__meta-highlight">
-            <strong>선택 박스(YOLO):</strong> cx={lv_selectedBoxNormalized.cx.toFixed(5)} cy=
-            {lv_selectedBoxNormalized.cy.toFixed(5)} w={lv_selectedBoxNormalized.w.toFixed(5)} h=
-            {lv_selectedBoxNormalized.h.toFixed(5)}
-          </p>
-        )}
+        <p>
+          <strong>박스 삭제:</strong> <kbd>Delete</kbd>
+        </p>
+        <p>
+          <strong>확대/축소:</strong> 마우스 휠
+        </p>
       </div>
     </section>
   );

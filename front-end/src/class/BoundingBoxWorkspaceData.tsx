@@ -1185,8 +1185,9 @@ export class BoundingBoxWorkspaceData {
     const lv_point = this.im_getImagePointFromMouse(p_event);
     if (!lv_point) return;
 
+    const lv_forceDrawing = p_event.shiftKey;
     const lv_hitBox = this.im_findHitBox(lv_point.x, lv_point.y);
-    if (lv_hitBox) {
+    if (lv_hitBox && !lv_forceDrawing) {
       this.iv_selectedBoxId = lv_hitBox.id;
       this.iv_dragState = {
         mode: "moving",
