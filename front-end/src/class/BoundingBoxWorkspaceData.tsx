@@ -53,6 +53,8 @@ const MAX_CANVAS_HEIGHT = 640;
 const MIN_ZOOM_SCALE = 0.2;
 const MAX_ZOOM_SCALE = 5;
 const ZOOM_STEP = 0.2;
+const DEFAULT_SPLIT_TRAIN_PERCENT = 70;
+const DEFAULT_SPLIT_VALID_PERCENT = 20;
 
 const gf_clamp = (p_value: number, p_min: number, p_max: number) => {
   return Math.max(p_min, Math.min(p_value, p_max));
@@ -92,6 +94,8 @@ export class BoundingBoxWorkspaceData {
   private iv_boxSequence = 1;
   private iv_imageLoadSequence = 0;
   private iv_zoomScale = 1;
+  private iv_splitTrainPercent = DEFAULT_SPLIT_TRAIN_PERCENT;
+  private iv_splitValidBoundaryPercent = DEFAULT_SPLIT_TRAIN_PERCENT + DEFAULT_SPLIT_VALID_PERCENT;
   private iv_isExporting = false;
   private iv_onChange: () => void;
 
@@ -268,6 +272,41 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @description export용 train 비율(%) 반환
+   */
+  public get pt_splitTrainPercent(): number {
+    return this.iv_splitTrainPercent;
+  }
+
+  /**
+   * @description export용 valid 경계값(%) 반환 (train + valid)
+   */
+  public get pt_splitValidBoundaryPercent(): number {
+    return this.iv_splitValidBoundaryPercent;
+  }
+
+  /**
+   * @description export용 valid 비율(%) 반환
+   */
+  public get pt_splitValidPercent(): number {
+    return this.iv_splitValidBoundaryPercent - this.iv_splitTrainPercent;
+  }
+
+  /**
+   * @description export용 test 비율(%) 반환
+   */
+  public get pt_splitTestPercent(): number {
+    return 100 - this.iv_splitValidBoundaryPercent;
+  }
+
+  /**
+   * @description 현재 로드 이미지 수 기준 split 결과 개수 반환
+   */
+  public get pt_exportSplitImageCounts(): Record<ExportSplit, number> {
+    return this.im_buildSplitCounts(this.iv_images.length);
+  }
+
+  /**
    * @description 내부 상태 변경 후 화면 렌더를 트리거
    */
   private im_notifyChange() {
@@ -411,6 +450,105 @@ export class BoundingBoxWorkspaceData {
 
     this.iv_zoomScale = lv_nextZoomScale;
     this.im_notifyChange();
+  }
+
+  /**
+   * @param p_percent train 비율(%)
+   * @description export split의 train 비율을 갱신
+   */
+  public im_setSplitTrainPercent(p_percent: number) {
+    const lv_nextTrainPercent = this.im_normalizeSplitPercent(p_percent);
+    const lv_nextValidBoundaryPercent = Math.max(lv_nextTrainPercent, this.iv_splitValidBoundaryPercent);
+
+    if (
+      lv_nextTrainPercent === this.iv_splitTrainPercent &&
+      lv_nextValidBoundaryPercent === this.iv_splitValidBoundaryPercent
+    ) {
+      return;
+    }
+
+    this.iv_splitTrainPercent = lv_nextTrainPercent;
+    this.iv_splitValidBoundaryPercent = lv_nextValidBoundaryPercent;
+    this.im_notifyChange();
+  }
+
+  /**
+   * @param p_percent valid 경계값(%)
+   * @description export split의 valid 경계(train+valid)를 갱신
+   */
+  public im_setSplitValidBoundaryPercent(p_percent: number) {
+    const lv_nextValidBoundaryPercent = this.im_normalizeSplitPercent(p_percent);
+    const lv_nextTrainPercent = Math.min(this.iv_splitTrainPercent, lv_nextValidBoundaryPercent);
+
+    if (
+      lv_nextTrainPercent === this.iv_splitTrainPercent &&
+      lv_nextValidBoundaryPercent === this.iv_splitValidBoundaryPercent
+    ) {
+      return;
+    }
+
+    this.iv_splitTrainPercent = lv_nextTrainPercent;
+    this.iv_splitValidBoundaryPercent = lv_nextValidBoundaryPercent;
+    this.im_notifyChange();
+  }
+
+  /**
+   * @param p_percent percent 입력값
+   * @returns 0~100 범위로 보정된 정수 percent
+   */
+  private im_normalizeSplitPercent(p_percent: number): number {
+    if (!Number.isFinite(p_percent)) return 0;
+    return gf_clamp(Math.round(p_percent), 0, 100);
+  }
+
+  /**
+   * @param p_totalImages 이미지 총 개수
+   * @returns 현재 split 비율 기준 이미지 개수
+   */
+  private im_buildSplitCounts(p_totalImages: number): Record<ExportSplit, number> {
+    if (p_totalImages <= 0) {
+      return { train: 0, valid: 0, test: 0 };
+    }
+
+    const lv_ratioMap: Record<ExportSplit, number> = {
+      train: this.pt_splitTrainPercent / 100,
+      valid: this.pt_splitValidPercent / 100,
+      test: this.pt_splitTestPercent / 100,
+    };
+    const lv_countMap: Record<ExportSplit, number> = {
+      train: 0,
+      valid: 0,
+      test: 0,
+    };
+    const lv_order: ExportSplit[] = ["train", "valid", "test"];
+
+    const lv_allocations = lv_order.map((p_split, p_index) => {
+      const lv_raw = p_totalImages * lv_ratioMap[p_split];
+      const lv_base = Math.floor(lv_raw);
+      lv_countMap[p_split] = lv_base;
+
+      return {
+        split: p_split,
+        fraction: lv_raw - lv_base,
+        priority: p_index,
+      };
+    });
+
+    let lv_remain = p_totalImages - (lv_countMap.train + lv_countMap.valid + lv_countMap.test);
+    lv_allocations.sort((p_a, p_b) => {
+      if (p_b.fraction !== p_a.fraction) return p_b.fraction - p_a.fraction;
+      return p_a.priority - p_b.priority;
+    });
+
+    let lv_allocationIndex = 0;
+    while (lv_remain > 0) {
+      const lv_targetSplit = lv_allocations[lv_allocationIndex % lv_allocations.length].split;
+      lv_countMap[lv_targetSplit] += 1;
+      lv_allocationIndex += 1;
+      lv_remain -= 1;
+    }
+
+    return lv_countMap;
   }
 
   /**
@@ -879,50 +1017,27 @@ export class BoundingBoxWorkspaceData {
    * @description export 대상 이미지를 split 규칙에 맞춰 계산
    */
   private im_buildExportTargets(): ExportTarget[] {
-    const lv_targets: ExportTarget[] = [];
-    const lv_unknownImages: RouterImageItem[] = [];
+    const lv_sortedImages = this.iv_images
+      .slice()
+      .sort((p_a, p_b) => p_a.relativePath.localeCompare(p_b.relativePath));
+    const lv_splitCounts = this.im_buildSplitCounts(lv_sortedImages.length);
+    const lv_trainEnd = lv_splitCounts.train;
+    const lv_validEnd = lv_splitCounts.train + lv_splitCounts.valid;
 
-    this.iv_images.forEach((p_image) => {
-      const lv_split = this.im_detectKnownSplit(p_image.relativePath);
-      if (!lv_split) {
-        lv_unknownImages.push(p_image);
-        return;
+    return lv_sortedImages.map((p_image, p_index) => {
+      let lv_split: ExportSplit = "test";
+      if (p_index < lv_trainEnd) {
+        lv_split = "train";
+      } else if (p_index < lv_validEnd) {
+        lv_split = "valid";
       }
 
-      lv_targets.push({
+      return {
         image: p_image,
         split: lv_split,
         exportFileName: this.im_buildExportFileName(p_image.relativePath),
-      });
+      };
     });
-
-    lv_unknownImages
-      .slice()
-      .sort((p_a, p_b) => p_a.relativePath.localeCompare(p_b.relativePath))
-      .forEach((p_image, p_index) => {
-        const lv_splitIndex = p_index % 10;
-        const lv_split: ExportSplit = lv_splitIndex < 8 ? "train" : lv_splitIndex === 8 ? "valid" : "test";
-
-        lv_targets.push({
-          image: p_image,
-          split: lv_split,
-          exportFileName: this.im_buildExportFileName(p_image.relativePath),
-        });
-      });
-
-    return lv_targets;
-  }
-
-  /**
-   * @param p_relativePath 이미지 상대 경로
-   * @returns 경로 기반 split 추정 결과
-   */
-  private im_detectKnownSplit(p_relativePath: string): ExportSplit | null {
-    const lv_normalized = p_relativePath.replace(/\\/g, "/").toLowerCase();
-    if (/(^|\/)train\/images\//.test(lv_normalized)) return "train";
-    if (/(^|\/)(valid|val)\/images\//.test(lv_normalized)) return "valid";
-    if (/(^|\/)test\/images\//.test(lv_normalized)) return "test";
-    return null;
   }
 
   /**
@@ -1104,6 +1219,7 @@ export class BoundingBoxWorkspaceData {
       `train: ${p_splitCounts.train}`,
       `valid: ${p_splitCounts.valid}`,
       `test: ${p_splitCounts.test}`,
+      `split ratio: ${this.pt_splitTrainPercent}/${this.pt_splitValidPercent}/${this.pt_splitTestPercent}`,
       `total boxes: ${this.pt_totalBoxCount}`,
       "",
       `categories(${this.iv_labelCategories.length}): ${this.iv_labelCategories.join(", ")}`,

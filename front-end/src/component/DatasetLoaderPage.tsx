@@ -24,6 +24,7 @@ class DataSet extends Main {
 
 export default function DatasetLoaderPage() {
   const [lv_Obj] = useState(() => new DataSet());
+  const [lv_isExportModalOpen, setExportModalOpen] = useState(false);
   lv_Obj.im_Prepare_Hooks();
 
   lv_Obj.im_UnMounted(() => {
@@ -35,6 +36,27 @@ export default function DatasetLoaderPage() {
   const lv_currentImagePath = lv_workspace.pt_currentImage?.relativePath || "";
   const lv_currentBoxes = lv_workspace.pt_currentBoxes;
   const lv_isExporting = lv_workspace.pt_isExporting;
+  const lv_splitTrainPercent = lv_workspace.pt_splitTrainPercent;
+  const lv_splitValidBoundaryPercent = lv_workspace.pt_splitValidBoundaryPercent;
+  const lv_splitValidPercent = lv_workspace.pt_splitValidPercent;
+  const lv_splitTestPercent = lv_workspace.pt_splitTestPercent;
+  const lv_splitImageCounts = lv_workspace.pt_exportSplitImageCounts;
+  const lv_totalImages = lv_workspace.pt_images.length;
+
+  const lf_openExportModal = () => {
+    if (lv_workspace.pt_images.length === 0 || lv_isExporting) return;
+    setExportModalOpen(true);
+  };
+
+  const lf_closeExportModal = () => {
+    if (lv_isExporting) return;
+    setExportModalOpen(false);
+  };
+
+  const lf_confirmExport = async () => {
+    await lv_workspace.im_exportYolo26Dataset();
+    setExportModalOpen(false);
+  };
 
   return (
     <div className="dataset-loader">
@@ -48,13 +70,14 @@ export default function DatasetLoaderPage() {
                 type="button"
                 className="dataset-loader__box-list-header-button"
                 disabled={lv_isExporting || lv_workspace.pt_images.length === 0}
-                onClick={() => void lv_workspace.im_exportYolo26Dataset()}
+                onClick={lf_openExportModal}
               >
                 <i className="bi bi-download dataset-loader__box-list-action-icon" aria-hidden="true" />
-                {lv_isExporting ? "YOLO26 Export 중..." : "YOLO26 Export"}
+                {lv_isExporting ? "YOLO26 Export 중..." : "YOLO26 Export 설정"}
               </button>
             </div>
           </div>
+
           <p className="dataset-loader__box-list-meta">
             <strong>현재 이미지:</strong> {lv_currentImagePath || "-"}
           </p>
@@ -102,6 +125,112 @@ export default function DatasetLoaderPage() {
       <main className="dataset-loader__main">
         <BoundingBoxWorkspace p_workspace={lv_workspace} />
       </main>
+
+      {lv_isExportModalOpen && (
+        <div className="dataset-loader__export-modal-backdrop" role="presentation" onClick={lf_closeExportModal}>
+          <section
+            className="dataset-loader__export-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dataset-loader-export-title"
+            onClick={(p_event) => p_event.stopPropagation()}
+          >
+            <header className="dataset-loader__export-modal-header">
+              <h3 id="dataset-loader-export-title">YOLO26 Export Split</h3>
+              <button type="button" onClick={lf_closeExportModal} disabled={lv_isExporting}>
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </header>
+
+            <section className="dataset-loader__split-panel">
+              <div className="dataset-loader__split-top">
+                <span className="dataset-loader__split-chip is-train">
+                  <i className="bi bi-stars" aria-hidden="true" /> Train
+                </span>
+                <span className="dataset-loader__split-chip is-valid">
+                  <i className="bi bi-shield-check" aria-hidden="true" /> Valid
+                </span>
+                <span className="dataset-loader__split-chip is-test">
+                  <i className="bi bi-pencil-square" aria-hidden="true" /> Test
+                </span>
+              </div>
+
+              <div className="dataset-loader__split-percent">
+                <span className="is-train">{lv_splitTrainPercent}%</span>
+                <span className="is-valid">{lv_splitValidPercent}%</span>
+                <span className="is-test">{lv_splitTestPercent}%</span>
+              </div>
+
+              <div className="dataset-loader__split-slider-wrap">
+                <div className="dataset-loader__split-slider-track" aria-hidden="true">
+                  <span
+                    className="dataset-loader__split-slider-segment is-train"
+                    style={{ width: `${lv_splitTrainPercent}%` }}
+                  />
+                  <span
+                    className="dataset-loader__split-slider-segment is-valid"
+                    style={{
+                      left: `${lv_splitTrainPercent}%`,
+                      width: `${lv_splitValidPercent}%`,
+                    }}
+                  />
+                  <span
+                    className="dataset-loader__split-slider-segment is-test"
+                    style={{
+                      left: `${lv_splitValidBoundaryPercent}%`,
+                      width: `${lv_splitTestPercent}%`,
+                    }}
+                  />
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={lv_splitTrainPercent}
+                  disabled={lv_isExporting}
+                  className="dataset-loader__split-slider dataset-loader__split-slider--train"
+                  onChange={(p_event) =>
+                    lv_workspace.im_setSplitTrainPercent(Number(p_event.currentTarget.value))
+                  }
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={lv_splitValidBoundaryPercent}
+                  disabled={lv_isExporting}
+                  className="dataset-loader__split-slider dataset-loader__split-slider--valid"
+                  onChange={(p_event) =>
+                    lv_workspace.im_setSplitValidBoundaryPercent(Number(p_event.currentTarget.value))
+                  }
+                />
+              </div>
+
+              <div className="dataset-loader__split-count">
+                <span className="is-train">Train: {lv_splitImageCounts.train} images</span>
+                <span className="is-valid">Valid: {lv_splitImageCounts.valid} images</span>
+                <span className="is-test">Test: {lv_splitImageCounts.test} images</span>
+              </div>
+              <p className="dataset-loader__split-total">Total: {lv_totalImages} images</p>
+            </section>
+
+            <footer className="dataset-loader__export-modal-footer">
+              <button type="button" className="is-cancel" onClick={lf_closeExportModal} disabled={lv_isExporting}>
+                취소
+              </button>
+              <button
+                type="button"
+                className="is-confirm"
+                onClick={() => void lf_confirmExport()}
+                disabled={lv_isExporting || lv_workspace.pt_images.length === 0}
+              >
+                <i className="bi bi-download" aria-hidden="true" />
+                {lv_isExporting ? "Export 중..." : "선택 후 Export"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
