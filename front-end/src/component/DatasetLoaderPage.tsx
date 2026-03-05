@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "bootstrap-icons/font/bootstrap-icons.css";
 import "./DatasetLoaderPage.scss";
 import { Main } from "@jsLib/class/Main";
 import { Upload } from "@jsLib/class/Upload";
@@ -39,7 +40,9 @@ export default function DatasetLoaderPage() {
       <aside className="dataset-loader__aside">
         <UploadArea p_upload={lv_Obj.pt_upload} />
         <section className="dataset-loader__box-list">
-          <h3 className="dataset-loader__box-list-title">Labeling Box List</h3>
+          <div className="dataset-loader__box-list-header">
+            <h3 className="dataset-loader__box-list-title">Labeling Box List</h3>
+          </div>
           <p className="dataset-loader__box-list-meta">
             <strong>현재 이미지:</strong> {lv_currentImagePath || "-"}
           </p>
@@ -54,9 +57,8 @@ export default function DatasetLoaderPage() {
               {lv_currentBoxes.map((p_box, p_index) => (
                 <li
                   key={p_box.id}
-                  className={`dataset-loader__box-list-item ${
-                    lv_workspace.pt_selectedBoxId === p_box.id ? "is-selected" : ""
-                  }`}
+                  className={`dataset-loader__box-list-item ${lv_workspace.pt_selectedBoxId === p_box.id ? "is-selected" : ""
+                    }`}
                   onClick={() => lv_workspace.im_selectBoxById(p_box.id)}
                 >
                   <div className="dataset-loader__box-list-item-top">
@@ -66,6 +68,14 @@ export default function DatasetLoaderPage() {
                     <span className="dataset-loader__box-list-item-size">
                       {Math.round(p_box.w)} x {Math.round(p_box.h)}
                     </span>
+                    <button
+                      className="dataset-loader__box-list-actions"
+                      type="button"
+                      disabled={!lv_workspace.pt_selectedBoxId}
+                      onClick={() => lv_workspace.im_deleteSelectedBox()}
+                    >
+                      <i className="bi bi-trash dataset-loader__box-list-action-icon" aria-hidden="true" />                      
+                    </button>
                   </div>
                   <p className="dataset-loader__box-list-item-coords">
                     x={p_box.x.toFixed(1)} y={p_box.y.toFixed(1)} w={p_box.w.toFixed(1)} h=

@@ -111,22 +111,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           </button>
         </div>
 
-        <button
-          type="button"
-          className="bbox-workspace__danger"
-          disabled={!p_workspace.pt_selectedBoxId}
-          onClick={() => p_workspace.im_deleteSelectedBox()}
-        >
-          선택 박스 삭제
-        </button>
-
-        <button
-          type="button"
-          disabled={lv_currentBoxes.length === 0}
-          onClick={() => p_workspace.im_clearCurrentBoxes()}
-        >
-          현재 이미지 박스 전체 삭제
-        </button>
       </div>
 
       {p_workspace.pt_categoryStatusMessage && (

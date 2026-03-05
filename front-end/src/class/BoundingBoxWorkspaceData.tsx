@@ -779,17 +779,6 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
-   * @description 현재 이미지의 모든 박스를 삭제
-   */
-  public im_clearCurrentBoxes() {
-    if (this.pt_currentBoxes.length === 0) return;
-
-    this.im_updateCurrentBoxes(() => []);
-    this.iv_selectedBoxId = null;
-    this.im_notifyChange();
-  }
-
-  /**
    * @description 현재 이미지/박스 상태를 캔버스에 그린다.
    */
   public im_drawScene() {
