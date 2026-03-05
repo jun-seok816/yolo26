@@ -56,19 +56,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           </button>
         </div>
 
-        <div className="bbox-workspace__zoom">
-          <button type="button" disabled={lv_images.length === 0} onClick={() => p_workspace.im_zoomOut()}>
-            -
-          </button>
-          <span>{p_workspace.pt_zoomPercent}%</span>
-          <button type="button" disabled={lv_images.length === 0} onClick={() => p_workspace.im_zoomIn()}>
-            +
-          </button>
-          <button type="button" disabled={lv_images.length === 0} onClick={() => p_workspace.im_resetZoom()}>
-            100%
-          </button>
-        </div>
-
         <label className="bbox-workspace__label-input">
           Label
           <select
