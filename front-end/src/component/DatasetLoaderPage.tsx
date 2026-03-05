@@ -136,11 +136,10 @@ export default function DatasetLoaderPage() {
                     </span>
                     <button
                       className="dataset-loader__box-list-actions"
-                      type="button"
-                      disabled={!lv_workspace.pt_selectedBoxId}
-                      onClick={() => lv_workspace.im_deleteSelectedBox()}
+                      type="button"                      
+                      onClick={() => { lv_workspace.im_selectBoxById(p_box.id); lv_workspace.im_deleteSelectedBox(); }}
                     >
-                      <i className="bi bi-trash dataset-loader__box-list-action-icon" aria-hidden="true" />                      
+                      <i className="bi bi-trash dataset-loader__box-list-action-icon" aria-hidden="true" />
                     </button>
                   </div>
                   <p className="dataset-loader__box-list-item-coords">

@@ -18,6 +18,30 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
     p_workspace.im_drawScene();
   });
 
+  useEffect(() => {
+    const lf_isTypingTarget = (p_target: EventTarget | null): boolean => {
+      if (!(p_target instanceof HTMLElement)) return false;
+      if (p_target.isContentEditable) return true;
+
+      const lv_tagName = p_target.tagName.toLowerCase();
+      return lv_tagName === "input" || lv_tagName === "textarea" || lv_tagName === "select";
+    };
+
+    const lf_handleWindowKeyDown = (p_event: KeyboardEvent) => {
+      if (p_event.key !== "Delete") return;
+      if (!p_workspace.pt_selectedBoxId) return;
+      if (lf_isTypingTarget(p_event.target)) return;
+
+      p_event.preventDefault();
+      p_workspace.im_deleteSelectedBox();
+    };
+
+    window.addEventListener("keydown", lf_handleWindowKeyDown);
+    return () => {
+      window.removeEventListener("keydown", lf_handleWindowKeyDown);
+    };
+  }, [p_workspace]);
+
   const lv_images = p_workspace.pt_images;
   const lv_currentImage = p_workspace.pt_currentImage;
   const lv_currentBoxes = p_workspace.pt_currentBoxes;
