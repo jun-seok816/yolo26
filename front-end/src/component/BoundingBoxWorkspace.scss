@@ -128,7 +128,7 @@
   color: #334766;
 }
 
-.bbox-workspace__label-input input {
+.bbox-workspace__label-input select {
   border: 1px solid #c8d2e2;
   border-radius: 5px;
   height: 28px;
@@ -218,7 +218,7 @@
     justify-content: space-between;
   }
 
-  .bbox-workspace__label-input input {
+  .bbox-workspace__label-input select {
     width: 100%;
     min-width: 0;
   }

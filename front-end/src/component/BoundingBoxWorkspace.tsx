@@ -71,13 +71,16 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
 
         <label className="bbox-workspace__label-input">
           Label
-          <input
-            type="text"
+          <select
             value={p_workspace.pt_labelInput}
             onChange={(p_event) => p_workspace.im_setLabelInput(p_event.currentTarget.value)}
-            placeholder="object"
-            maxLength={40}
-          />
+          >
+            {p_workspace.pt_labelCategories.map((p_category) => (
+              <option key={p_category} value={p_category}>
+                {p_category}
+              </option>
+            ))}
+          </select>
         </label>
 
         <button

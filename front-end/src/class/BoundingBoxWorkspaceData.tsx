@@ -37,7 +37,8 @@ type DragState =
   | { mode: "drawing"; startX: number; startY: number }
   | { mode: "moving"; boxId: string; offsetX: number; offsetY: number };
 
-const DEFAULT_LABEL = "object";
+const LABEL_CATEGORIES = ["fish", "other"] as const;
+const DEFAULT_LABEL = LABEL_CATEGORIES[0];
 const MIN_BOX_SIZE = 4;
 const MAX_CANVAS_WIDTH = 860;
 const MAX_CANVAS_HEIGHT = 640;
@@ -65,7 +66,7 @@ export class BoundingBoxWorkspaceData {
   private iv_draftBox: BoundingBox | null = null;
   private iv_isLoadingImage = false;
   private iv_statusMessage = "라우터 이미지 목록을 불러오는 중입니다.";
-  private iv_labelInput = DEFAULT_LABEL;
+  private iv_labelInput: (typeof LABEL_CATEGORIES)[number] = DEFAULT_LABEL;
   private iv_naturalSize: ImageSize = { width: 0, height: 0 };
 
   private iv_canvasElement: HTMLCanvasElement | null = null;
@@ -154,6 +155,13 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @description 선택 가능한 라벨 카테고리 목록 반환
+   */
+  public get pt_labelCategories(): readonly string[] {
+    return LABEL_CATEGORIES;
+  }
+
+  /**
    * @description 원본 이미지 크기(px) 반환
    */
   public get pt_naturalSize(): ImageSize {
@@ -235,7 +243,8 @@ export class BoundingBoxWorkspaceData {
    * @description 신규 박스 기본 라벨을 변경
    */
   public im_setLabelInput(p_label: string) {
-    this.iv_labelInput = p_label;
+    if (!LABEL_CATEGORIES.includes(p_label as (typeof LABEL_CATEGORIES)[number])) return;
+    this.iv_labelInput = p_label as (typeof LABEL_CATEGORIES)[number];
     this.im_notifyChange();
   }
 
@@ -537,7 +546,7 @@ export class BoundingBoxWorkspaceData {
       y: lv_point.y,
       w: 0,
       h: 0,
-      label: this.iv_labelInput.trim() || DEFAULT_LABEL,
+      label: this.iv_labelInput,
     };
     this.im_notifyChange();
   }
@@ -565,7 +574,7 @@ export class BoundingBoxWorkspaceData {
         y: lv_y,
         w: lv_w,
         h: lv_h,
-        label: this.iv_labelInput.trim() || DEFAULT_LABEL,
+        label: this.iv_labelInput,
       };
       this.im_notifyChange();
       return;
@@ -621,7 +630,7 @@ export class BoundingBoxWorkspaceData {
           y: lv_y,
           w: lv_w,
           h: lv_h,
-          label: this.iv_labelInput.trim() || DEFAULT_LABEL,
+          label: this.iv_labelInput,
         };
 
         this.im_updateCurrentBoxes((p_prevBoxes) => [...p_prevBoxes, lv_nextBox]);
