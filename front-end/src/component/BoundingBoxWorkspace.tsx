@@ -83,6 +83,34 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           </select>
         </label>
 
+        <div className="bbox-workspace__category-editor">
+          <input
+            type="text"
+            value={p_workspace.pt_categoryDraftName}
+            onChange={(p_event) => p_workspace.im_setCategoryDraftName(p_event.currentTarget.value)}
+            onKeyDown={(p_event) => {
+              if (p_event.key !== "Enter") return;
+              p_event.preventDefault();
+              p_workspace.im_addCategory();
+            }}
+            placeholder="새 카테고리"
+            maxLength={30}
+          />
+          <button type="button" onClick={() => p_workspace.im_addCategory()}>
+            카테고리 추가
+          </button>
+          <button
+            type="button"
+            className="bbox-workspace__danger"
+            disabled={
+              p_workspace.pt_labelCategories.length <= 1 || p_workspace.pt_selectedCategoryUsageCount > 0
+            }
+            onClick={() => p_workspace.im_deleteSelectedCategory()}
+          >
+            선택 카테고리 삭제
+          </button>
+        </div>
+
         <button
           type="button"
           className="bbox-workspace__danger"
@@ -100,6 +128,10 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           현재 이미지 박스 전체 삭제
         </button>
       </div>
+
+      {p_workspace.pt_categoryStatusMessage && (
+        <p className="bbox-workspace__category-message">{p_workspace.pt_categoryStatusMessage}</p>
+      )}
 
       <div className="bbox-workspace__canvas-wrap">
         <canvas

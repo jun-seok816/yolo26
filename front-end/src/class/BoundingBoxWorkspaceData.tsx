@@ -37,8 +37,8 @@ type DragState =
   | { mode: "drawing"; startX: number; startY: number }
   | { mode: "moving"; boxId: string; offsetX: number; offsetY: number };
 
-const LABEL_CATEGORIES = ["fish", "other"] as const;
-const DEFAULT_LABEL = LABEL_CATEGORIES[0];
+const DEFAULT_LABEL_CATEGORIES = ["fish", "other"];
+const DEFAULT_LABEL = DEFAULT_LABEL_CATEGORIES[0];
 const MIN_BOX_SIZE = 4;
 const MAX_CANVAS_WIDTH = 860;
 const MAX_CANVAS_HEIGHT = 640;
@@ -66,7 +66,10 @@ export class BoundingBoxWorkspaceData {
   private iv_draftBox: BoundingBox | null = null;
   private iv_isLoadingImage = false;
   private iv_statusMessage = "라우터 이미지 목록을 불러오는 중입니다.";
-  private iv_labelInput: (typeof LABEL_CATEGORIES)[number] = DEFAULT_LABEL;
+  private iv_labelCategories: string[] = [...DEFAULT_LABEL_CATEGORIES];
+  private iv_labelInput: string = DEFAULT_LABEL;
+  private iv_categoryDraftName = "";
+  private iv_categoryStatusMessage = "";
   private iv_naturalSize: ImageSize = { width: 0, height: 0 };
 
   private iv_canvasElement: HTMLCanvasElement | null = null;
@@ -158,7 +161,28 @@ export class BoundingBoxWorkspaceData {
    * @description 선택 가능한 라벨 카테고리 목록 반환
    */
   public get pt_labelCategories(): readonly string[] {
-    return LABEL_CATEGORIES;
+    return this.iv_labelCategories;
+  }
+
+  /**
+   * @description 신규 카테고리 입력값 반환
+   */
+  public get pt_categoryDraftName(): string {
+    return this.iv_categoryDraftName;
+  }
+
+  /**
+   * @description 카테고리 편집 결과 메시지 반환
+   */
+  public get pt_categoryStatusMessage(): string {
+    return this.iv_categoryStatusMessage;
+  }
+
+  /**
+   * @description 현재 선택 카테고리 사용 박스 수 반환
+   */
+  public get pt_selectedCategoryUsageCount(): number {
+    return this.im_getCategoryUsageCount(this.iv_labelInput);
   }
 
   /**
@@ -243,9 +267,81 @@ export class BoundingBoxWorkspaceData {
    * @description 신규 박스 기본 라벨을 변경
    */
   public im_setLabelInput(p_label: string) {
-    if (!LABEL_CATEGORIES.includes(p_label as (typeof LABEL_CATEGORIES)[number])) return;
-    this.iv_labelInput = p_label as (typeof LABEL_CATEGORIES)[number];
+    if (!this.iv_labelCategories.includes(p_label)) return;
+    this.iv_labelInput = p_label;
+    this.iv_categoryStatusMessage = "";
     this.im_notifyChange();
+  }
+
+  /**
+   * @param p_name 신규 카테고리 입력 문자열
+   * @description 카테고리 입력 필드 값을 갱신
+   */
+  public im_setCategoryDraftName(p_name: string) {
+    this.iv_categoryDraftName = p_name;
+    this.im_notifyChange();
+  }
+
+  /**
+   * @description 신규 카테고리를 목록에 추가
+   */
+  public im_addCategory() {
+    const lv_categoryName = this.iv_categoryDraftName.trim();
+    if (!lv_categoryName) {
+      this.iv_categoryStatusMessage = "카테고리 이름을 입력해주세요.";
+      this.im_notifyChange();
+      return;
+    }
+
+    const lv_exists = this.iv_labelCategories.some(
+      (p_item) => p_item.toLowerCase() === lv_categoryName.toLowerCase()
+    );
+    if (lv_exists) {
+      this.iv_categoryStatusMessage = "이미 존재하는 카테고리입니다.";
+      this.im_notifyChange();
+      return;
+    }
+
+    this.iv_labelCategories = [...this.iv_labelCategories, lv_categoryName];
+    this.iv_labelInput = lv_categoryName;
+    this.iv_categoryDraftName = "";
+    this.iv_categoryStatusMessage = `'${lv_categoryName}' 카테고리를 추가했습니다.`;
+    this.im_notifyChange();
+  }
+
+  /**
+   * @description 현재 선택된 카테고리를 목록에서 삭제
+   */
+  public im_deleteSelectedCategory() {
+    if (this.iv_labelCategories.length <= 1) {
+      this.iv_categoryStatusMessage = "카테고리는 최소 1개 이상 유지해야 합니다.";
+      this.im_notifyChange();
+      return;
+    }
+
+    const lv_targetCategory = this.iv_labelInput;
+    const lv_usageCount = this.im_getCategoryUsageCount(lv_targetCategory);
+    if (lv_usageCount > 0) {
+      this.iv_categoryStatusMessage = `'${lv_targetCategory}' 라벨 박스 ${lv_usageCount}개가 있어 삭제할 수 없습니다.`;
+      this.im_notifyChange();
+      return;
+    }
+
+    this.iv_labelCategories = this.iv_labelCategories.filter((p_item) => p_item !== lv_targetCategory);
+    this.iv_labelInput = this.iv_labelCategories[0] || DEFAULT_LABEL;
+    this.iv_categoryStatusMessage = `'${lv_targetCategory}' 카테고리를 삭제했습니다.`;
+    this.im_notifyChange();
+  }
+
+  /**
+   * @param p_categoryName 카테고리 이름
+   * @returns 카테고리를 사용 중인 박스 개수
+   * @description 전체 이미지 기준 카테고리 사용량을 계산
+   */
+  private im_getCategoryUsageCount(p_categoryName: string): number {
+    return Object.values(this.iv_boxesByImage).reduce((p_sum, p_boxes) => {
+      return p_sum + p_boxes.filter((p_box) => p_box.label === p_categoryName).length;
+    }, 0);
   }
 
   /**

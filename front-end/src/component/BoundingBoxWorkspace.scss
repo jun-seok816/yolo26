@@ -138,6 +138,30 @@
   font-size: 13px;
 }
 
+.bbox-workspace__category-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bbox-workspace__category-editor input {
+  border: 1px solid #c8d2e2;
+  border-radius: 7px;
+  height: 34px;
+  width: 140px;
+  padding: 0 10px;
+  color: #27374f;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.bbox-workspace__category-message {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: #5b3f17;
+  line-height: 1.35;
+}
+
 .bbox-workspace__canvas-wrap {
   border: 1px solid #2e3b4e;
   border-radius: 10px;
@@ -221,5 +245,14 @@
   .bbox-workspace__label-input select {
     width: 100%;
     min-width: 0;
+  }
+
+  .bbox-workspace__category-editor {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .bbox-workspace__category-editor input {
+    width: 100%;
   }
 }
