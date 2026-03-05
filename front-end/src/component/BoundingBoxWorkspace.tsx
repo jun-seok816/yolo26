@@ -43,6 +43,9 @@ const DEFAULT_LABEL = "object";
 const MIN_BOX_SIZE = 4;
 const MAX_CANVAS_WIDTH = 860;
 const MAX_CANVAS_HEIGHT = 640;
+const MIN_ZOOM_SCALE = 0.2;
+const MAX_ZOOM_SCALE = 5;
+const ZOOM_STEP = 0.2;
 
 const gf_clamp = (p_value: number, p_min: number, p_max: number) => {
   return Math.max(p_min, Math.min(p_value, p_max));
@@ -73,6 +76,7 @@ class BoundingBoxWorkspaceData extends Main {
   private iv_boxSequence = 1;
   private iv_imageLoadSequence = 0;
   private iv_drawToken = 0;
+  private iv_zoomScale = 1;
 
   /**
    * @description 현재 로드된 이미지 목록 반환
@@ -162,11 +166,12 @@ class BoundingBoxWorkspaceData extends Main {
       return { width: 860, height: 500, scale: 1 };
     }
 
-    const lv_scale = Math.min(
+    const lv_baseScale = Math.min(
       MAX_CANVAS_WIDTH / this.iv_naturalSize.width,
       MAX_CANVAS_HEIGHT / this.iv_naturalSize.height,
       1
     );
+    const lv_scale = lv_baseScale * this.iv_zoomScale;
 
     return {
       width: Math.max(1, Math.round(this.iv_naturalSize.width * lv_scale)),
@@ -204,6 +209,13 @@ class BoundingBoxWorkspaceData extends Main {
    */
   public get pt_drawToken(): number {
     return this.iv_drawToken;
+  }
+
+  /**
+   * @description 현재 줌 퍼센트(%) 반환
+   */
+  public get pt_zoomPercent(): number {
+    return Math.round(this.iv_zoomScale * 100);
   }
 
   /**
@@ -245,6 +257,39 @@ class BoundingBoxWorkspaceData extends Main {
    */
   public im_moveNextImage() {
     this.im_setCurrentIndex(this.iv_currentIndex + 1);
+  }
+
+  /**
+   * @description 이미지를 한 단계 확대
+   */
+  public im_zoomIn() {
+    this.im_setZoomScale(this.iv_zoomScale + ZOOM_STEP);
+  }
+
+  /**
+   * @description 이미지를 한 단계 축소
+   */
+  public im_zoomOut() {
+    this.im_setZoomScale(this.iv_zoomScale - ZOOM_STEP);
+  }
+
+  /**
+   * @description 확대 배율을 100%로 초기화
+   */
+  public im_resetZoom() {
+    this.im_setZoomScale(1);
+  }
+
+  /**
+   * @param p_zoomScale 적용할 줌 배율
+   * @description 줌 범위를 보정해 배율을 반영
+   */
+  private im_setZoomScale(p_zoomScale: number) {
+    const lv_nextZoomScale = gf_clamp(p_zoomScale, MIN_ZOOM_SCALE, MAX_ZOOM_SCALE);
+    if (Math.abs(lv_nextZoomScale - this.iv_zoomScale) < 0.0001) return;
+
+    this.iv_zoomScale = lv_nextZoomScale;
+    this.im_notifyChange();
   }
 
   /**
@@ -585,6 +630,22 @@ class BoundingBoxWorkspaceData extends Main {
   }
 
   /**
+   * @param p_event 캔버스 휠 이벤트
+   * @description 마우스 휠로 확대/축소를 제어
+   */
+  public im_handleCanvasWheel(p_event: React.WheelEvent<HTMLCanvasElement>) {
+    if (!this.iv_loadedImage) return;
+
+    p_event.preventDefault();
+    if (p_event.deltaY < 0) {
+      this.im_zoomIn();
+      return;
+    }
+
+    this.im_zoomOut();
+  }
+
+  /**
    * @description 현재 선택된 박스를 삭제
    */
   public im_deleteSelectedBox() {
@@ -755,6 +816,19 @@ export default function BoundingBoxWorkspace() {
           </button>
         </div>
 
+        <div className="bbox-workspace__zoom">
+          <button type="button" disabled={lv_images.length === 0} onClick={() => lv_Obj.im_zoomOut()}>
+            -
+          </button>
+          <span>{lv_Obj.pt_zoomPercent}%</span>
+          <button type="button" disabled={lv_images.length === 0} onClick={() => lv_Obj.im_zoomIn()}>
+            +
+          </button>
+          <button type="button" disabled={lv_images.length === 0} onClick={() => lv_Obj.im_resetZoom()}>
+            100%
+          </button>
+        </div>
+
         <label className="bbox-workspace__label-input">
           Label
           <input
@@ -792,6 +866,7 @@ export default function BoundingBoxWorkspace() {
           onMouseMove={(p_event) => lv_Obj.im_handleMouseMove(p_event)}
           onMouseUp={(p_event) => lv_Obj.im_handleMouseUp(p_event)}
           onMouseLeave={(p_event) => lv_Obj.im_handleMouseLeave(p_event)}
+          onWheel={(p_event) => lv_Obj.im_handleCanvasWheel(p_event)}
         />
         {lv_Obj.pt_isLoadingImage && <div className="bbox-workspace__loading">이미지 로딩 중...</div>}
       </div>
