@@ -88,6 +88,17 @@
   cursor: not-allowed;
 }
 
+.dataset-loader__box-list-header-button.is-import {
+  border-color: #76a18c;
+  background: #edf8f1;
+  color: #1f5b3f;
+}
+
+.dataset-loader__box-list-header-button.is-import:hover:not(:disabled) {
+  border-color: #5d8b75;
+  background: #dff1e8;
+}
+
 .dataset-loader__export-modal-backdrop {
   position: fixed;
   inset: 0;

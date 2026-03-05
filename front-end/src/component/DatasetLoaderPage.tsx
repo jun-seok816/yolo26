@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./DatasetLoaderPage.scss";
 import { Main } from "@jsLib/class/Main";
@@ -25,6 +25,7 @@ class DataSet extends Main {
 export default function DatasetLoaderPage() {
   const [lv_Obj] = useState(() => new DataSet());
   const [lv_isExportModalOpen, setExportModalOpen] = useState(false);
+  const lv_importDirectoryInputRef = useRef<HTMLInputElement | null>(null);
   lv_Obj.im_Prepare_Hooks();
 
   lv_Obj.im_UnMounted(() => {
@@ -35,7 +36,9 @@ export default function DatasetLoaderPage() {
   const lv_workspace = lv_Obj.pt_bboxWorkspace;
   const lv_currentImagePath = lv_workspace.pt_currentImage?.relativePath || "";
   const lv_currentBoxes = lv_workspace.pt_currentBoxes;
+  const lv_isImporting = lv_workspace.pt_isImporting;
   const lv_isExporting = lv_workspace.pt_isExporting;
+  const lv_isBusy = lv_isImporting || lv_isExporting;
   const lv_splitTrainPercent = lv_workspace.pt_splitTrainPercent;
   const lv_splitValidBoundaryPercent = lv_workspace.pt_splitValidBoundaryPercent;
   const lv_splitValidPercent = lv_workspace.pt_splitValidPercent;
@@ -44,13 +47,23 @@ export default function DatasetLoaderPage() {
   const lv_totalImages = lv_workspace.pt_images.length;
 
   const lf_openExportModal = () => {
-    if (lv_workspace.pt_images.length === 0 || lv_isExporting) return;
+    if (lv_workspace.pt_images.length === 0 || lv_isBusy) return;
     setExportModalOpen(true);
   };
 
   const lf_closeExportModal = () => {
-    if (lv_isExporting) return;
+    if (lv_isBusy) return;
     setExportModalOpen(false);
+  };
+
+  const lf_openImportDirectoryPicker = () => {
+    if (lv_isBusy) return;
+    lv_importDirectoryInputRef.current?.click();
+  };
+
+  const lf_handleImportDirectoryChange = (p_event: React.ChangeEvent<HTMLInputElement>) => {
+    setExportModalOpen(false);
+    void lv_workspace.im_importYolo26FromDirectoryInput(p_event.currentTarget);
   };
 
   const lf_confirmExport = async () => {
@@ -62,14 +75,32 @@ export default function DatasetLoaderPage() {
     <div className="dataset-loader">
       <aside className="dataset-loader__aside">
         <UploadArea p_upload={lv_Obj.pt_upload} />
+        <input
+          ref={(p_input) => {
+            lv_importDirectoryInputRef.current = p_input;
+            lv_workspace.im_prepareImportDirectoryInput(p_input);
+          }}
+          type="file"
+          onChange={lf_handleImportDirectoryChange}
+          style={{ display: "none" }}
+        />
         <section className="dataset-loader__box-list">
           <div className="dataset-loader__box-list-header">
             <h3 className="dataset-loader__box-list-title">Labeling Box List</h3>
             <div className="dataset-loader__box-list-header-actions">
               <button
                 type="button"
+                className="dataset-loader__box-list-header-button is-import"
+                disabled={lv_isBusy}
+                onClick={lf_openImportDirectoryPicker}
+              >
+                <i className="bi bi-folder2-open dataset-loader__box-list-action-icon" aria-hidden="true" />
+                {lv_isImporting ? "YOLO26 Import 중..." : "YOLO26 Import"}
+              </button>
+              <button
+                type="button"
                 className="dataset-loader__box-list-header-button"
-                disabled={lv_isExporting || lv_workspace.pt_images.length === 0}
+                disabled={lv_isBusy || lv_workspace.pt_images.length === 0}
                 onClick={lf_openExportModal}
               >
                 <i className="bi bi-download dataset-loader__box-list-action-icon" aria-hidden="true" />
@@ -137,7 +168,7 @@ export default function DatasetLoaderPage() {
           >
             <header className="dataset-loader__export-modal-header">
               <h3 id="dataset-loader-export-title">YOLO26 Export Split</h3>
-              <button type="button" onClick={lf_closeExportModal} disabled={lv_isExporting}>
+              <button type="button" onClick={lf_closeExportModal} disabled={lv_isBusy}>
                 <i className="bi bi-x-lg" aria-hidden="true" />
               </button>
             </header>
@@ -187,7 +218,7 @@ export default function DatasetLoaderPage() {
                   min={0}
                   max={100}
                   value={lv_splitTrainPercent}
-                  disabled={lv_isExporting}
+                  disabled={lv_isBusy}
                   className="dataset-loader__split-slider dataset-loader__split-slider--train"
                   onChange={(p_event) =>
                     lv_workspace.im_setSplitTrainPercent(Number(p_event.currentTarget.value))
@@ -198,7 +229,7 @@ export default function DatasetLoaderPage() {
                   min={0}
                   max={100}
                   value={lv_splitValidBoundaryPercent}
-                  disabled={lv_isExporting}
+                  disabled={lv_isBusy}
                   className="dataset-loader__split-slider dataset-loader__split-slider--valid"
                   onChange={(p_event) =>
                     lv_workspace.im_setSplitValidBoundaryPercent(Number(p_event.currentTarget.value))
@@ -215,14 +246,14 @@ export default function DatasetLoaderPage() {
             </section>
 
             <footer className="dataset-loader__export-modal-footer">
-              <button type="button" className="is-cancel" onClick={lf_closeExportModal} disabled={lv_isExporting}>
+              <button type="button" className="is-cancel" onClick={lf_closeExportModal} disabled={lv_isBusy}>
                 취소
               </button>
               <button
                 type="button"
                 className="is-confirm"
                 onClick={() => void lf_confirmExport()}
-                disabled={lv_isExporting || lv_workspace.pt_images.length === 0}
+                disabled={lv_isBusy || lv_workspace.pt_images.length === 0}
               >
                 <i className="bi bi-download" aria-hidden="true" />
                 {lv_isExporting ? "Export 중..." : "선택 후 Export"}

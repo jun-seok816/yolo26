@@ -45,6 +45,20 @@ type ExportTarget = {
   exportFileName: string;
 };
 
+type DatasetFileKind = "images" | "labels";
+
+type ParsedDatasetPath = {
+  split: ExportSplit;
+  kind: DatasetFileKind;
+  relativePath: string;
+};
+
+type ImportImageCandidate = {
+  file: File;
+  split: ExportSplit;
+  relativePathInSplit: string;
+};
+
 const DEFAULT_LABEL_CATEGORIES = ["fish", "other"];
 const DEFAULT_LABEL = DEFAULT_LABEL_CATEGORIES[0];
 const MIN_BOX_SIZE = 4;
@@ -55,6 +69,7 @@ const MAX_ZOOM_SCALE = 5;
 const ZOOM_STEP = 0.2;
 const DEFAULT_SPLIT_TRAIN_PERCENT = 70;
 const DEFAULT_SPLIT_VALID_PERCENT = 20;
+const IMPORT_IMAGE_FILE_EXTENSION_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 
 const gf_clamp = (p_value: number, p_min: number, p_max: number) => {
   return Math.max(p_min, Math.min(p_value, p_max));
@@ -96,6 +111,8 @@ export class BoundingBoxWorkspaceData {
   private iv_zoomScale = 1;
   private iv_splitTrainPercent = DEFAULT_SPLIT_TRAIN_PERCENT;
   private iv_splitValidBoundaryPercent = DEFAULT_SPLIT_TRAIN_PERCENT + DEFAULT_SPLIT_VALID_PERCENT;
+  private iv_localImageObjectUrls: string[] = [];
+  private iv_isImporting = false;
   private iv_isExporting = false;
   private iv_onChange: () => void;
 
@@ -265,6 +282,13 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @description YOLO26 import 진행 상태 반환
+   */
+  public get pt_isImporting(): boolean {
+    return this.iv_isImporting;
+  }
+
+  /**
    * @description YOLO26 export 진행 상태 반환
    */
   public get pt_isExporting(): boolean {
@@ -311,6 +335,16 @@ export class BoundingBoxWorkspaceData {
    */
   private im_notifyChange() {
     this.iv_onChange();
+  }
+
+  /**
+   * @description import 이미지 object URL 리소스를 정리
+   */
+  private im_revokeLocalImageObjectUrls() {
+    this.iv_localImageObjectUrls.forEach((p_url) => {
+      URL.revokeObjectURL(p_url);
+    });
+    this.iv_localImageObjectUrls = [];
   }
 
   /**
@@ -552,6 +586,377 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @param p_input import용 directory input 엘리먼트
+   * @description YOLO26 폴더 선택을 위한 속성(webkitdirectory)을 부여
+   */
+  public im_prepareImportDirectoryInput(p_input: HTMLInputElement | null) {
+    if (!p_input) return;
+
+    const lv_input = p_input as HTMLInputElement & {
+      webkitdirectory?: boolean;
+      directory?: boolean;
+    };
+
+    lv_input.webkitdirectory = true;
+    lv_input.directory = true;
+  }
+
+  /**
+   * @param p_input directory input 엘리먼트
+   * @description YOLO26 export 폴더(train/valid/test + labels)를 로컬에서 import
+   */
+  public async im_importYolo26FromDirectoryInput(p_input: HTMLInputElement) {
+    if (this.iv_isImporting || this.iv_isExporting) {
+      p_input.value = "";
+      return;
+    }
+
+    const lv_files = Array.from(p_input.files || []);
+    p_input.value = "";
+    if (lv_files.length === 0) return;
+
+    this.iv_isImporting = true;
+    this.iv_statusMessage = "YOLO26 import 준비 중입니다.";
+    this.im_notifyChange();
+    const lv_nextObjectUrls: string[] = [];
+
+    try {
+      const lv_splitCountsFromFolder: Record<ExportSplit, number> = {
+        train: 0,
+        valid: 0,
+        test: 0,
+      };
+      const lv_imageCandidates: ImportImageCandidate[] = [];
+      const lv_labelFileByKey = new Map<string, File>();
+      let lv_dataYamlFile: File | null = null;
+
+      for (const p_file of lv_files) {
+        const lv_relativePath = this.im_getInputFileRelativePath(p_file);
+        if (!lv_dataYamlFile && /(^|\/)data\.ya?ml$/i.test(lv_relativePath)) {
+          lv_dataYamlFile = p_file;
+        }
+
+        const lv_parsedPath = this.im_parseDatasetPath(lv_relativePath);
+        if (!lv_parsedPath) continue;
+
+        if (lv_parsedPath.kind === "images") {
+          if (!IMPORT_IMAGE_FILE_EXTENSION_PATTERN.test(lv_parsedPath.relativePath)) continue;
+          lv_imageCandidates.push({
+            file: p_file,
+            split: lv_parsedPath.split,
+            relativePathInSplit: lv_parsedPath.relativePath,
+          });
+          lv_splitCountsFromFolder[lv_parsedPath.split] += 1;
+          continue;
+        }
+
+        if (!/\.txt$/i.test(lv_parsedPath.relativePath)) continue;
+
+        const lv_key = `${lv_parsedPath.split}/${this.im_removeFileExtension(
+          lv_parsedPath.relativePath.toLowerCase()
+        )}`;
+        lv_labelFileByKey.set(lv_key, p_file);
+      }
+
+      if (lv_imageCandidates.length === 0) {
+        this.iv_statusMessage =
+          "YOLO26 import 실패: train/valid/test/images 하위에서 이미지를 찾지 못했습니다.";
+        this.im_notifyChange();
+        return;
+      }
+
+      const lv_labelTextByKey = new Map<string, string>();
+      let lv_maxClassId = -1;
+
+      for (const [p_key, p_labelFile] of lv_labelFileByKey.entries()) {
+        const lv_text = await p_labelFile.text();
+        lv_labelTextByKey.set(p_key, lv_text);
+        lv_maxClassId = Math.max(lv_maxClassId, this.im_getMaxClassIdFromYoloText(lv_text));
+      }
+
+      let lv_yamlCategoryNames: string[] = [];
+      if (lv_dataYamlFile) {
+        const lv_dataYamlText = await lv_dataYamlFile.text();
+        lv_yamlCategoryNames = this.im_parseCategoryNamesFromDataYaml(lv_dataYamlText);
+      }
+      const lv_baseCategoryNames =
+        lv_yamlCategoryNames.length > 0 ? lv_yamlCategoryNames : [...DEFAULT_LABEL_CATEGORIES];
+      const lv_categoryNames = this.im_expandCategoryNamesByClassId(lv_baseCategoryNames, lv_maxClassId);
+
+      const lv_sortedImages = lv_imageCandidates.slice().sort((p_a, p_b) => {
+        const lv_splitOrderDiff = this.im_getSplitOrder(p_a.split) - this.im_getSplitOrder(p_b.split);
+        if (lv_splitOrderDiff !== 0) return lv_splitOrderDiff;
+        return p_a.relativePathInSplit.localeCompare(p_b.relativePathInSplit);
+      });
+
+      const lv_nextImages: RouterImageItem[] = [];
+      const lv_nextBoxesByImage: Record<string, BoundingBox[]> = {};
+      let lv_nextBoxSequence = 1;
+
+      for (let lv_i = 0; lv_i < lv_sortedImages.length; lv_i += 1) {
+        const lv_candidate = lv_sortedImages[lv_i];
+        const lv_objectUrl = URL.createObjectURL(lv_candidate.file);
+        lv_nextObjectUrls.push(lv_objectUrl);
+
+        const lv_relativePath = `${lv_candidate.split}/images/${lv_candidate.relativePathInSplit}`;
+        const lv_imageId = `img_${lv_i}_${lv_relativePath}`;
+        const lv_labelKey = `${lv_candidate.split}/${this.im_removeFileExtension(
+          lv_candidate.relativePathInSplit.toLowerCase()
+        )}`;
+        const lv_labelText = lv_labelTextByKey.get(lv_labelKey) || "";
+
+        lv_nextImages.push({
+          id: lv_imageId,
+          relativePath: lv_relativePath,
+          url: lv_objectUrl,
+        });
+
+        if (lv_labelText.trim().length > 0) {
+          const lv_imageSize = await this.im_getImageSizeFromBlob(lv_candidate.file);
+          const lv_boxes = this.im_parseYoloLabelText(
+            lv_labelText,
+            lv_imageSize,
+            lv_categoryNames,
+            () => `box_${lv_nextBoxSequence++}`
+          );
+
+          if (lv_boxes.length > 0) {
+            lv_nextBoxesByImage[lv_imageId] = lv_boxes;
+          }
+        }
+
+        this.iv_statusMessage = `YOLO26 import 중... ${lv_i + 1}/${lv_sortedImages.length}`;
+        this.im_notifyChange();
+      }
+
+      this.iv_images = lv_nextImages;
+      this.iv_currentIndex = 0;
+      this.iv_boxesByImage = lv_nextBoxesByImage;
+      this.iv_selectedBoxId = null;
+      this.iv_draftBox = null;
+      this.iv_dragState = { mode: "idle" };
+      this.iv_boxSequence = Math.max(this.iv_boxSequence, lv_nextBoxSequence);
+      this.iv_labelCategories = lv_categoryNames;
+      this.iv_labelInput = lv_categoryNames[0] || DEFAULT_LABEL;
+      this.iv_categoryDraftName = "";
+      this.iv_categoryStatusMessage = "";
+
+      const lv_totalImages = lv_sortedImages.length;
+      const lv_trainPercent = this.im_normalizeSplitPercent(
+        (lv_splitCountsFromFolder.train / lv_totalImages) * 100
+      );
+      const lv_validBoundaryPercent = this.im_normalizeSplitPercent(
+        ((lv_splitCountsFromFolder.train + lv_splitCountsFromFolder.valid) / lv_totalImages) * 100
+      );
+      this.iv_splitTrainPercent = Math.min(lv_trainPercent, lv_validBoundaryPercent);
+      this.iv_splitValidBoundaryPercent = Math.max(this.iv_splitTrainPercent, lv_validBoundaryPercent);
+
+      this.im_revokeLocalImageObjectUrls();
+      this.iv_localImageObjectUrls = lv_nextObjectUrls;
+
+      const lv_totalBoxes = Object.values(lv_nextBoxesByImage).reduce((p_sum, p_boxes) => p_sum + p_boxes.length, 0);
+      this.iv_statusMessage = `YOLO26 import 완료: 이미지 ${lv_totalImages}개, 박스 ${lv_totalBoxes}개`;
+      this.im_notifyChange();
+      this.im_startCurrentImageLoading();
+    } catch (p_error) {
+      lv_nextObjectUrls.forEach((p_url) => {
+        URL.revokeObjectURL(p_url);
+      });
+      console.error("[BoundingBoxWorkspace] YOLO26 import failed:", p_error);
+      this.iv_statusMessage = "YOLO26 import에 실패했습니다. export 폴더 구조를 확인해주세요.";
+      this.im_notifyChange();
+    } finally {
+      this.iv_isImporting = false;
+      this.im_notifyChange();
+    }
+  }
+
+  /**
+   * @param p_file input 파일 객체
+   * @returns 브라우저 상대 경로(없으면 파일명)
+   */
+  private im_getInputFileRelativePath(p_file: File): string {
+    const lv_fileWithPath = p_file as File & { webkitRelativePath?: string };
+    return (lv_fileWithPath.webkitRelativePath || p_file.name).replace(/\\/g, "/");
+  }
+
+  /**
+   * @param p_relativePath 입력 파일 상대 경로
+   * @returns train/valid/test 내부 파일인지 파싱 결과
+   */
+  private im_parseDatasetPath(p_relativePath: string): ParsedDatasetPath | null {
+    const lv_normalized = p_relativePath.replace(/\\/g, "/").replace(/^\/+/, "").trim();
+    if (!lv_normalized) return null;
+
+    const lv_match = lv_normalized.match(/(?:^|\/)(train|valid|val|test)\/(images|labels)\/(.+)$/i);
+    if (!lv_match) return null;
+
+    const lv_rawSplit = lv_match[1].toLowerCase();
+    const lv_split: ExportSplit = lv_rawSplit === "val" ? "valid" : (lv_rawSplit as ExportSplit);
+    const lv_kind = lv_match[2].toLowerCase() as DatasetFileKind;
+    const lv_innerPath = lv_match[3].replace(/^\/+/, "").trim();
+    if (!lv_innerPath) return null;
+
+    return {
+      split: lv_split,
+      kind: lv_kind,
+      relativePath: lv_innerPath,
+    };
+  }
+
+  /**
+   * @param p_split split 명칭
+   * @returns split 정렬 우선순위
+   */
+  private im_getSplitOrder(p_split: ExportSplit): number {
+    if (p_split === "train") return 0;
+    if (p_split === "valid") return 1;
+    return 2;
+  }
+
+  /**
+   * @param p_text YOLO txt 파일 본문
+   * @returns 본문에 포함된 최대 class id
+   */
+  private im_getMaxClassIdFromYoloText(p_text: string): number {
+    let lv_maxClassId = -1;
+
+    p_text.split(/\r?\n/).forEach((p_line) => {
+      const lv_tokens = p_line.trim().split(/\s+/);
+      if (lv_tokens.length < 5) return;
+      const lv_classId = Number(lv_tokens[0]);
+      if (!Number.isInteger(lv_classId) || lv_classId < 0) return;
+      lv_maxClassId = Math.max(lv_maxClassId, lv_classId);
+    });
+
+    return lv_maxClassId;
+  }
+
+  /**
+   * @param p_dataYamlText data.yaml 파일 본문
+   * @returns 파싱된 카테고리 이름 배열
+   */
+  private im_parseCategoryNamesFromDataYaml(p_dataYamlText: string): string[] {
+    const lv_inlineNamesMatch = p_dataYamlText.match(/^\s*names\s*:\s*\[(.*)\]\s*$/m);
+    if (lv_inlineNamesMatch) {
+      const lv_inlineBody = lv_inlineNamesMatch[1];
+      const lv_inlineTokens = lv_inlineBody.match(/'[^']*'|"[^"]*"|[^,\s][^,]*/g) || [];
+      const lv_inlineNames = lv_inlineTokens
+        .map((p_token) => p_token.trim().replace(/^['"]|['"]$/g, ""))
+        .map((p_token) => p_token.trim())
+        .filter((p_token) => p_token.length > 0);
+
+      if (lv_inlineNames.length > 0) {
+        return lv_inlineNames;
+      }
+    }
+
+    const lv_lines = p_dataYamlText.split(/\r?\n/);
+    const lv_numberedNames: string[] = [];
+    let lv_namesBlockFound = false;
+
+    for (let lv_i = 0; lv_i < lv_lines.length; lv_i += 1) {
+      const lv_line = lv_lines[lv_i];
+      if (!lv_namesBlockFound) {
+        if (/^\s*names\s*:\s*$/.test(lv_line)) {
+          lv_namesBlockFound = true;
+        }
+        continue;
+      }
+
+      if (/^\s*$/.test(lv_line)) continue;
+      if (/^\S/.test(lv_line)) break;
+
+      const lv_itemMatch = lv_line.match(/^\s*(\d+)\s*:\s*(.+?)\s*$/);
+      if (!lv_itemMatch) continue;
+
+      const lv_index = Number(lv_itemMatch[1]);
+      if (!Number.isInteger(lv_index) || lv_index < 0) continue;
+
+      const lv_name = lv_itemMatch[2]
+        .split("#")[0]
+        .trim()
+        .replace(/^['"]|['"]$/g, "")
+        .trim();
+      if (!lv_name) continue;
+
+      lv_numberedNames[lv_index] = lv_name;
+    }
+
+    return lv_numberedNames.filter((p_name) => typeof p_name === "string" && p_name.length > 0);
+  }
+
+  /**
+   * @param p_categoryNames 기본 카테고리 목록
+   * @param p_maxClassId 라벨에서 감지된 최대 class id
+   * @returns class id 길이에 맞게 보정된 카테고리 목록
+   */
+  private im_expandCategoryNamesByClassId(p_categoryNames: string[], p_maxClassId: number): string[] {
+    const lv_nextNames = p_categoryNames.map((p_name) => p_name.trim());
+    for (let lv_classId = 0; lv_classId <= p_maxClassId; lv_classId += 1) {
+      if (!lv_nextNames[lv_classId]) {
+        lv_nextNames[lv_classId] = `class_${lv_classId}`;
+      }
+    }
+
+    return lv_nextNames.filter((p_name) => p_name.length > 0);
+  }
+
+  /**
+   * @param p_labelText label txt 본문
+   * @param p_imageSize 원본 이미지 크기
+   * @param p_categoryNames class id별 카테고리 이름
+   * @param p_getNextBoxId 박스 id 생성 콜백
+   * @returns 파싱된 박스 목록(px)
+   */
+  private im_parseYoloLabelText(
+    p_labelText: string,
+    p_imageSize: ImageSize,
+    p_categoryNames: string[],
+    p_getNextBoxId: () => string
+  ): BoundingBox[] {
+    const lv_boxes: BoundingBox[] = [];
+    if (p_imageSize.width <= 0 || p_imageSize.height <= 0) return lv_boxes;
+
+    p_labelText.split(/\r?\n/).forEach((p_line) => {
+      const lv_tokens = p_line.trim().split(/\s+/);
+      if (lv_tokens.length < 5) return;
+
+      const lv_classId = Number(lv_tokens[0]);
+      const lv_cx = Number(lv_tokens[1]);
+      const lv_cy = Number(lv_tokens[2]);
+      const lv_w = Number(lv_tokens[3]);
+      const lv_h = Number(lv_tokens[4]);
+
+      if (!Number.isInteger(lv_classId) || lv_classId < 0) return;
+      if (!Number.isFinite(lv_cx) || !Number.isFinite(lv_cy) || !Number.isFinite(lv_w) || !Number.isFinite(lv_h))
+        return;
+      if (lv_w <= 0 || lv_h <= 0) return;
+
+      const lv_boxW = gf_clamp(lv_w * p_imageSize.width, 0, p_imageSize.width);
+      const lv_boxH = gf_clamp(lv_h * p_imageSize.height, 0, p_imageSize.height);
+      if (lv_boxW <= 0 || lv_boxH <= 0) return;
+
+      const lv_centerX = lv_cx * p_imageSize.width;
+      const lv_centerY = lv_cy * p_imageSize.height;
+      const lv_boxX = gf_clamp(lv_centerX - lv_boxW / 2, 0, Math.max(0, p_imageSize.width - lv_boxW));
+      const lv_boxY = gf_clamp(lv_centerY - lv_boxH / 2, 0, Math.max(0, p_imageSize.height - lv_boxH));
+      const lv_label = p_categoryNames[lv_classId] || `class_${lv_classId}`;
+
+      lv_boxes.push({
+        id: p_getNextBoxId(),
+        x: lv_boxX,
+        y: lv_boxY,
+        w: lv_boxW,
+        h: lv_boxH,
+        label: lv_label,
+      });
+    });
+
+    return lv_boxes;
+  }
+
+  /**
    * @param p_boxId 선택할 박스 ID (null이면 선택 해제)
    * @description 외부 리스트뷰 클릭 기반으로 박스 선택 상태를 변경
    */
@@ -592,6 +997,9 @@ export class BoundingBoxWorkspaceData {
    * @description 서버 라우터(/images/list)에서 이미지 목록을 로드
    */
   public async im_loadImageList() {
+    if (this.iv_isImporting) return;
+
+    this.im_revokeLocalImageObjectUrls();
     this.iv_statusMessage = "라우터 이미지 목록을 불러오는 중입니다.";
     this.im_notifyChange();
 
@@ -942,7 +1350,7 @@ export class BoundingBoxWorkspaceData {
    * @description 현재 라벨링 데이터를 YOLO26 포맷 디렉터리로 export
    */
   public async im_exportYolo26Dataset() {
-    if (this.iv_isExporting) return;
+    if (this.iv_isExporting || this.iv_isImporting) return;
 
     if (this.iv_images.length === 0) {
       this.iv_statusMessage = "내보낼 이미지가 없습니다. 먼저 /images/list에서 이미지를 로드해주세요.";
@@ -1328,9 +1736,12 @@ export class BoundingBoxWorkspaceData {
    */
   public im_dispose() {
     this.iv_imageLoadSequence += 1;
+    this.im_revokeLocalImageObjectUrls();
     this.iv_canvasElement = null;
     this.iv_loadedImage = null;
     this.iv_dragState = { mode: "idle" };
     this.iv_draftBox = null;
+    this.iv_isImporting = false;
+    this.iv_isExporting = false;
   }
 }
