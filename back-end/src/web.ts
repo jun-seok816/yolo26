@@ -1,16 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
 const app = express();
-import bodyParser from "body-parser";
 import path from "path";
-import mysql, { Connection, Pool } from "mysql2";
 import session from "express-session";
-var MySQLStore = require("express-mysql-session")(session);
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import Db from "./db";
 import imageRouter from "./router/imageRouter";
-
-const lv_Db = new Db();
 // .env 파일에서 환경 변수 로드
 dotenv.config();
 
@@ -21,19 +15,11 @@ declare global {
     }
   }
 
-  interface MyApp {
-    db: Pool;
+  interface MyApp {    
     checkSession: (req: Request, res: Response, next: NextFunction) => void;
   }
 }
 
-const gf_cs = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session || !req.session.userId) {
-    res.status(401).json({ err: true, msg: "세션 만료" });
-  } else {
-    next();
-  }
-};
 
 declare module "express-session" {
   export interface SessionData {
@@ -48,23 +34,16 @@ declare module "express-serve-static-core" {
   }
 }
 
-process._myApp = {
-  db: mysql.createPool(lv_Db.pt_Data.DB),
-  checkSession: gf_cs,
-};
-
 //https://expressjs.com/ko/starter/static-files.html s
 app.set("puplic", path.join(__dirname, "../build"));
 app.use(express.static(app.settings.puplic));
 
 app.use(cookieParser());
-var sessionStore = new MySQLStore(lv_Db.pt_Data.DB);
 
 const sessionMiddleware = session({
   secret: "subscribe_loutbtbahah4281!@",
   resave: true,
-  saveUninitialized: false,
-  store: sessionStore,
+  saveUninitialized: false,  
   cookie: {
     maxAge: 24 * 60 * 60 * 1000 * 7, // 24 hours
   },

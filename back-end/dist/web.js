@@ -6,38 +6,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const app = (0, express_1.default)();
 const path_1 = __importDefault(require("path"));
-const mysql2_1 = __importDefault(require("mysql2"));
 const express_session_1 = __importDefault(require("express-session"));
-var MySQLStore = require("express-mysql-session")(express_session_1.default);
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const dotenv_1 = __importDefault(require("dotenv"));
-const db_1 = __importDefault(require("./db"));
 const imageRouter_1 = __importDefault(require("./router/imageRouter"));
-const lv_Db = new db_1.default();
 // .env 파일에서 환경 변수 로드
 dotenv_1.default.config();
-const gf_cs = (req, res, next) => {
-    if (!req.session || !req.session.userId) {
-        res.status(401).json({ err: true, msg: "세션 만료" });
-    }
-    else {
-        next();
-    }
-};
-process._myApp = {
-    db: mysql2_1.default.createPool(lv_Db.pt_Data.DB),
-    checkSession: gf_cs,
-};
 //https://expressjs.com/ko/starter/static-files.html s
 app.set("puplic", path_1.default.join(__dirname, "../build"));
 app.use(express_1.default.static(app.settings.puplic));
 app.use((0, cookie_parser_1.default)());
-var sessionStore = new MySQLStore(lv_Db.pt_Data.DB);
 const sessionMiddleware = (0, express_session_1.default)({
     secret: "subscribe_loutbtbahah4281!@",
     resave: true,
     saveUninitialized: false,
-    store: sessionStore,
     cookie: {
         maxAge: 24 * 60 * 60 * 1000 * 7, // 24 hours
     },
