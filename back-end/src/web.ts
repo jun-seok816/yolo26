@@ -121,8 +121,8 @@ console.log(
 );
 
 const server = app
-  .listen(6002, () => {
-    console.log(`Example app listening on port ${6002}`);
+  .listen(3005, () => {
+    console.log(`Example app listening on port ${3005}`);
   })
   .setTimeout(12000000);
 
