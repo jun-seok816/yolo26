@@ -8,6 +8,7 @@ var MySQLStore = require("express-mysql-session")(session);
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import Db from "./db";
+import imageRouter from "./router/imageRouter";
 
 const lv_Db = new Db();
 // .env 파일에서 환경 변수 로드
@@ -71,6 +72,7 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use("/data", express.static(path.join(__dirname, "../../data")));
+app.use("/images", imageRouter);
 app.use(
   "/assets", //  /assets/* 요청
   express.static(path.join(__dirname, "../assets"))

@@ -1,11 +1,12 @@
 .dataset-loader {
   box-sizing: border-box;
   min-height: 100vh;
+  width: 100%;
   padding: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 14px;
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
   background: #f2f3f5;
@@ -16,8 +17,17 @@
   box-sizing: border-box;
 }
 
+.dataset-loader__top-wrap {
+  width: min(1040px, 100%);
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(260px, 1fr);
+  align-items: start;
+  justify-content: center;
+  gap: 12px;
+}
+
 .dataset-loader__project-panel {
-  width: min(360px, 100%);
+  width: 100%;
   padding: 14px;
   border: 1px solid #d7dbe2;
   border-radius: 12px;
@@ -62,4 +72,14 @@
 
 .dataset-loader__project-guide.is-ready {
   color: #275c3a;
+}
+
+.dataset-loader__workspace-panel {
+  width: min(1040px, 100%);
+}
+
+@media (max-width: 860px) {
+  .dataset-loader__top-wrap {
+    grid-template-columns: 1fr;
+  }
 }
