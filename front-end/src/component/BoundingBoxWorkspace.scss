@@ -1,5 +1,6 @@
 .bbox-workspace {
   width: 100%;
+  height: calc(100vh - 32px);
   border: 1px solid #cfd7e4;
   border-radius: 14px;
   background: #ffffff;
@@ -126,6 +127,8 @@
   padding: 10px;
   position: relative;
   overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .bbox-workspace__canvas {
@@ -181,6 +184,7 @@
 @media (max-width: 700px) {
   .bbox-workspace {
     padding: 10px;
+    height: calc(100vh - 32px);
   }
 
   .bbox-workspace__header {
