@@ -34,6 +34,7 @@ export default function DatasetLoaderPage() {
   const lv_workspace = lv_Obj.pt_bboxWorkspace;
   const lv_currentImagePath = lv_workspace.pt_currentImage?.relativePath || "";
   const lv_currentBoxes = lv_workspace.pt_currentBoxes;
+  const lv_isExporting = lv_workspace.pt_isExporting;
 
   return (
     <div className="dataset-loader">
@@ -42,6 +43,17 @@ export default function DatasetLoaderPage() {
         <section className="dataset-loader__box-list">
           <div className="dataset-loader__box-list-header">
             <h3 className="dataset-loader__box-list-title">Labeling Box List</h3>
+            <div className="dataset-loader__box-list-header-actions">
+              <button
+                type="button"
+                className="dataset-loader__box-list-header-button"
+                disabled={lv_isExporting || lv_workspace.pt_images.length === 0}
+                onClick={() => void lv_workspace.im_exportYolo26Dataset()}
+              >
+                <i className="bi bi-download dataset-loader__box-list-action-icon" aria-hidden="true" />
+                {lv_isExporting ? "YOLO26 Export 중..." : "YOLO26 Export"}
+              </button>
+            </div>
           </div>
           <p className="dataset-loader__box-list-meta">
             <strong>현재 이미지:</strong> {lv_currentImagePath || "-"}

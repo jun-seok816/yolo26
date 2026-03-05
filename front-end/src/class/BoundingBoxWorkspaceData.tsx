@@ -37,6 +37,14 @@ type DragState =
   | { mode: "drawing"; startX: number; startY: number }
   | { mode: "moving"; boxId: string; offsetX: number; offsetY: number };
 
+type ExportSplit = "train" | "valid" | "test";
+
+type ExportTarget = {
+  image: RouterImageItem;
+  split: ExportSplit;
+  exportFileName: string;
+};
+
 const DEFAULT_LABEL_CATEGORIES = ["fish", "other"];
 const DEFAULT_LABEL = DEFAULT_LABEL_CATEGORIES[0];
 const MIN_BOX_SIZE = 4;
@@ -58,6 +66,12 @@ const gf_toImageUrl = (p_relativePath: string) => {
     .join("/")}`;
 };
 
+declare global {
+  interface Window {
+    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+  }
+}
+
 export class BoundingBoxWorkspaceData {
   private iv_images: RouterImageItem[] = [];
   private iv_currentIndex = 0;
@@ -78,6 +92,7 @@ export class BoundingBoxWorkspaceData {
   private iv_boxSequence = 1;
   private iv_imageLoadSequence = 0;
   private iv_zoomScale = 1;
+  private iv_isExporting = false;
   private iv_onChange: () => void;
 
   constructor(p_onChange: () => void = () => {}) {
@@ -243,6 +258,13 @@ export class BoundingBoxWorkspaceData {
    */
   public get pt_zoomPercent(): number {
     return Math.round(this.iv_zoomScale * 100);
+  }
+
+  /**
+   * @description YOLO26 export 진행 상태 반환
+   */
+  public get pt_isExporting(): boolean {
+    return this.iv_isExporting;
   }
 
   /**
@@ -776,6 +798,335 @@ export class BoundingBoxWorkspaceData {
     );
     this.iv_selectedBoxId = null;
     this.im_notifyChange();
+  }
+
+  /**
+   * @description 현재 라벨링 데이터를 YOLO26 포맷 디렉터리로 export
+   */
+  public async im_exportYolo26Dataset() {
+    if (this.iv_isExporting) return;
+
+    if (this.iv_images.length === 0) {
+      this.iv_statusMessage = "내보낼 이미지가 없습니다. 먼저 /images/list에서 이미지를 로드해주세요.";
+      this.im_notifyChange();
+      return;
+    }
+
+    const lv_showDirectoryPicker = window.showDirectoryPicker;
+    if (typeof lv_showDirectoryPicker !== "function") {
+      this.iv_statusMessage = "현재 브라우저는 폴더 export를 지원하지 않습니다. Chrome/Edge에서 시도해주세요.";
+      this.im_notifyChange();
+      return;
+    }
+
+    this.iv_isExporting = true;
+    this.iv_statusMessage = "YOLO26 export 준비 중입니다.";
+    this.im_notifyChange();
+
+    try {
+      const lv_baseDirectory = await lv_showDirectoryPicker();
+      const lv_exportFolderName = `yolo26_export_${this.im_getExportTimestampToken()}`;
+      const lv_rootDirectory = await lv_baseDirectory.getDirectoryHandle(lv_exportFolderName, {
+        create: true,
+      });
+      const lv_splitDirectories = await this.im_createSplitDirectoryHandles(lv_rootDirectory);
+      const lv_exportTargets = this.im_buildExportTargets();
+      const lv_splitCounts: Record<ExportSplit, number> = {
+        train: 0,
+        valid: 0,
+        test: 0,
+      };
+
+      for (let lv_i = 0; lv_i < lv_exportTargets.length; lv_i += 1) {
+        const lv_target = lv_exportTargets[lv_i];
+        const lv_imageBlob = await this.im_fetchImageBlob(lv_target.image.url);
+        const lv_imageSize = await this.im_getImageSizeFromBlob(lv_imageBlob);
+        const lv_splitDirectory = lv_splitDirectories[lv_target.split];
+        const lv_boxes = this.iv_boxesByImage[lv_target.image.id] || [];
+        const lv_labelText = this.im_buildYoloLabelText(lv_boxes, lv_imageSize);
+        const lv_labelFileName = `${this.im_removeFileExtension(lv_target.exportFileName)}.txt`;
+
+        this.iv_statusMessage = `YOLO26 export 중... ${lv_i + 1}/${lv_exportTargets.length} (${lv_target.image.relativePath})`;
+        this.im_notifyChange();
+
+        await this.im_writeFile(lv_splitDirectory.images, lv_target.exportFileName, lv_imageBlob);
+        await this.im_writeFile(lv_splitDirectory.labels, lv_labelFileName, lv_labelText);
+        lv_splitCounts[lv_target.split] += 1;
+      }
+
+      await this.im_writeFile(lv_rootDirectory, "data.yaml", this.im_buildYoloDataYaml());
+      await this.im_writeFile(
+        lv_rootDirectory,
+        "README.dataset.txt",
+        this.im_buildExportReadme(lv_exportTargets.length, lv_splitCounts)
+      );
+
+      this.iv_statusMessage = `YOLO26 export 완료: ${lv_exportFolderName} (${lv_exportTargets.length}장)`;
+    } catch (p_error) {
+      if (p_error instanceof DOMException && p_error.name === "AbortError") {
+        this.iv_statusMessage = "YOLO26 export를 취소했습니다.";
+      } else {
+        console.error("[BoundingBoxWorkspace] YOLO26 export failed:", p_error);
+        this.iv_statusMessage = "YOLO26 export에 실패했습니다.";
+      }
+    } finally {
+      this.iv_isExporting = false;
+      this.im_notifyChange();
+    }
+  }
+
+  /**
+   * @description export 대상 이미지를 split 규칙에 맞춰 계산
+   */
+  private im_buildExportTargets(): ExportTarget[] {
+    const lv_targets: ExportTarget[] = [];
+    const lv_unknownImages: RouterImageItem[] = [];
+
+    this.iv_images.forEach((p_image) => {
+      const lv_split = this.im_detectKnownSplit(p_image.relativePath);
+      if (!lv_split) {
+        lv_unknownImages.push(p_image);
+        return;
+      }
+
+      lv_targets.push({
+        image: p_image,
+        split: lv_split,
+        exportFileName: this.im_buildExportFileName(p_image.relativePath),
+      });
+    });
+
+    lv_unknownImages
+      .slice()
+      .sort((p_a, p_b) => p_a.relativePath.localeCompare(p_b.relativePath))
+      .forEach((p_image, p_index) => {
+        const lv_splitIndex = p_index % 10;
+        const lv_split: ExportSplit = lv_splitIndex < 8 ? "train" : lv_splitIndex === 8 ? "valid" : "test";
+
+        lv_targets.push({
+          image: p_image,
+          split: lv_split,
+          exportFileName: this.im_buildExportFileName(p_image.relativePath),
+        });
+      });
+
+    return lv_targets;
+  }
+
+  /**
+   * @param p_relativePath 이미지 상대 경로
+   * @returns 경로 기반 split 추정 결과
+   */
+  private im_detectKnownSplit(p_relativePath: string): ExportSplit | null {
+    const lv_normalized = p_relativePath.replace(/\\/g, "/").toLowerCase();
+    if (/(^|\/)train\/images\//.test(lv_normalized)) return "train";
+    if (/(^|\/)(valid|val)\/images\//.test(lv_normalized)) return "valid";
+    if (/(^|\/)test\/images\//.test(lv_normalized)) return "test";
+    return null;
+  }
+
+  /**
+   * @param p_relativePath 이미지 상대 경로
+   * @returns export 파일명 (경로 충돌 회피용)
+   */
+  private im_buildExportFileName(p_relativePath: string): string {
+    const lv_normalized = p_relativePath.replace(/\\/g, "/").replace(/^\/+/, "").trim();
+    const lv_fileName = lv_normalized.replace(/\//g, "__");
+    const lv_sanitized = lv_fileName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_");
+    return lv_sanitized || "image.jpg";
+  }
+
+  /**
+   * @param p_fileName 파일명
+   * @returns 확장자를 제거한 파일명
+   */
+  private im_removeFileExtension(p_fileName: string): string {
+    const lv_dotIndex = p_fileName.lastIndexOf(".");
+    if (lv_dotIndex <= 0) return p_fileName;
+    return p_fileName.slice(0, lv_dotIndex);
+  }
+
+  /**
+   * @param p_rootDirectory export 루트 폴더 핸들
+   * @returns split별 images/labels 디렉터리 핸들 맵
+   */
+  private async im_createSplitDirectoryHandles(p_rootDirectory: FileSystemDirectoryHandle) {
+    const lv_trainDirectory = await p_rootDirectory.getDirectoryHandle("train", { create: true });
+    const lv_validDirectory = await p_rootDirectory.getDirectoryHandle("valid", { create: true });
+    const lv_testDirectory = await p_rootDirectory.getDirectoryHandle("test", { create: true });
+
+    const lv_trainImages = await lv_trainDirectory.getDirectoryHandle("images", { create: true });
+    const lv_trainLabels = await lv_trainDirectory.getDirectoryHandle("labels", { create: true });
+    const lv_validImages = await lv_validDirectory.getDirectoryHandle("images", { create: true });
+    const lv_validLabels = await lv_validDirectory.getDirectoryHandle("labels", { create: true });
+    const lv_testImages = await lv_testDirectory.getDirectoryHandle("images", { create: true });
+    const lv_testLabels = await lv_testDirectory.getDirectoryHandle("labels", { create: true });
+
+    return {
+      train: { images: lv_trainImages, labels: lv_trainLabels },
+      valid: { images: lv_validImages, labels: lv_validLabels },
+      test: { images: lv_testImages, labels: lv_testLabels },
+    } as const;
+  }
+
+  /**
+   * @param p_directory 파일을 저장할 디렉터리 핸들
+   * @param p_fileName 생성할 파일명
+   * @param p_content 파일 본문
+   * @description File System Access API로 파일을 생성/갱신
+   */
+  private async im_writeFile(
+    p_directory: FileSystemDirectoryHandle,
+    p_fileName: string,
+    p_content: string | Blob
+  ) {
+    const lv_fileHandle = await p_directory.getFileHandle(p_fileName, { create: true });
+    const lv_writable = await lv_fileHandle.createWritable();
+    await lv_writable.write(p_content);
+    await lv_writable.close();
+  }
+
+  /**
+   * @param p_imageUrl 이미지 URL
+   * @returns 이미지 Blob 데이터
+   */
+  private async im_fetchImageBlob(p_imageUrl: string): Promise<Blob> {
+    const lv_response = await fetch(p_imageUrl);
+    if (!lv_response.ok) {
+      throw new Error(`image download failed: ${p_imageUrl} (${lv_response.status})`);
+    }
+
+    return lv_response.blob();
+  }
+
+  /**
+   * @param p_blob 이미지 Blob
+   * @returns 이미지 원본 크기(px)
+   */
+  private async im_getImageSizeFromBlob(p_blob: Blob): Promise<ImageSize> {
+    return new Promise((p_resolve, p_reject) => {
+      const lv_objectUrl = URL.createObjectURL(p_blob);
+      const lv_image = new Image();
+
+      lv_image.onload = () => {
+        URL.revokeObjectURL(lv_objectUrl);
+        if (lv_image.naturalWidth <= 0 || lv_image.naturalHeight <= 0) {
+          p_reject(new Error("invalid image size"));
+          return;
+        }
+
+        p_resolve({
+          width: lv_image.naturalWidth,
+          height: lv_image.naturalHeight,
+        });
+      };
+
+      lv_image.onerror = () => {
+        URL.revokeObjectURL(lv_objectUrl);
+        p_reject(new Error("image size read failed"));
+      };
+
+      lv_image.src = lv_objectUrl;
+    });
+  }
+
+  /**
+   * @param p_boxes 이미지에 매핑된 박스 목록
+   * @param p_size 원본 이미지 크기
+   * @returns YOLO txt 파일 본문
+   */
+  private im_buildYoloLabelText(p_boxes: BoundingBox[], p_size: ImageSize): string {
+    if (p_boxes.length === 0 || p_size.width <= 0 || p_size.height <= 0) {
+      return "";
+    }
+
+    const lv_lines = p_boxes
+      .map((p_box) => {
+        const lv_classId = this.iv_labelCategories.findIndex((p_category) => p_category === p_box.label);
+        if (lv_classId < 0) return null;
+
+        const lv_cx = gf_clamp((p_box.x + p_box.w / 2) / p_size.width, 0, 1);
+        const lv_cy = gf_clamp((p_box.y + p_box.h / 2) / p_size.height, 0, 1);
+        const lv_w = gf_clamp(p_box.w / p_size.width, 0, 1);
+        const lv_h = gf_clamp(p_box.h / p_size.height, 0, 1);
+
+        return `${lv_classId} ${this.im_formatYoloFloat(lv_cx)} ${this.im_formatYoloFloat(
+          lv_cy
+        )} ${this.im_formatYoloFloat(lv_w)} ${this.im_formatYoloFloat(lv_h)}`;
+      })
+      .filter((p_line): p_line is string => p_line !== null);
+
+    return lv_lines.join("\n");
+  }
+
+  /**
+   * @param p_value 수치값
+   * @returns YOLO txt 저장용 소수 문자열
+   */
+  private im_formatYoloFloat(p_value: number): string {
+    const lv_text = p_value.toFixed(10).replace(/0+$/g, "").replace(/\.$/g, "");
+    return lv_text || "0";
+  }
+
+  /**
+   * @returns YOLO 데이터셋 설정 파일(data.yaml) 본문
+   */
+  private im_buildYoloDataYaml(): string {
+    const lv_names = this.iv_labelCategories
+      .map((p_category) => `'${p_category.replace(/'/g, "''")}'`)
+      .join(", ");
+
+    return [
+      "train: ../train/images",
+      "val: ../valid/images",
+      "test: ../test/images",
+      "",
+      `nc: ${this.iv_labelCategories.length}`,
+      `names: [${lv_names}]`,
+      "",
+    ].join("\n");
+  }
+
+  /**
+   * @param p_totalImages export된 이미지 총 개수
+   * @param p_splitCounts split별 이미지 개수
+   * @returns README.dataset.txt 본문
+   */
+  private im_buildExportReadme(p_totalImages: number, p_splitCounts: Record<ExportSplit, number>): string {
+    const lv_exportedAt = new Date().toISOString();
+
+    return [
+      `# yolo26-export > ${lv_exportedAt}`,
+      "",
+      "Exported by YOLO26 labeling workspace",
+      "",
+      `Total images: ${p_totalImages}`,
+      `train: ${p_splitCounts.train}`,
+      `valid: ${p_splitCounts.valid}`,
+      `test: ${p_splitCounts.test}`,
+      `total boxes: ${this.pt_totalBoxCount}`,
+      "",
+      `categories(${this.iv_labelCategories.length}): ${this.iv_labelCategories.join(", ")}`,
+      "",
+    ].join("\n");
+  }
+
+  /**
+   * @returns export 폴더명 생성용 타임스탬프 문자열
+   */
+  private im_getExportTimestampToken(): string {
+    const lv_now = new Date();
+    const lv_pad2 = (p_value: number) => p_value.toString().padStart(2, "0");
+
+    return [
+      lv_now.getFullYear(),
+      lv_pad2(lv_now.getMonth() + 1),
+      lv_pad2(lv_now.getDate()),
+      "_",
+      lv_pad2(lv_now.getHours()),
+      lv_pad2(lv_now.getMinutes()),
+      lv_pad2(lv_now.getSeconds()),
+    ].join("");
   }
 
   /**

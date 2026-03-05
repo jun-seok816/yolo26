@@ -57,6 +57,37 @@
   gap: 8px;
 }
 
+.dataset-loader__box-list-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dataset-loader__box-list-header-button {
+  border: 1px solid #8aa6cc;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: #1e3a66;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.dataset-loader__box-list-header-button:hover:not(:disabled) {
+  border-color: #6d8fbe;
+  background: #e1eeff;
+}
+
+.dataset-loader__box-list-header-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .dataset-loader__box-list-actions {
   display: flex;
   flex-wrap: wrap;
