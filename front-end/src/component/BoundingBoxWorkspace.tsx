@@ -32,9 +32,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           <h2 className="bbox-workspace__title">Bounding Box Workspace</h2>
           <p className="bbox-workspace__status">{p_workspace.pt_statusMessage}</p>
         </div>
-        <button type="button" className="bbox-workspace__refresh" onClick={() => void p_workspace.im_loadImageList()}>
-          이미지 목록 새로고침
-        </button>
       </header>
 
       <div className="bbox-workspace__toolbar">

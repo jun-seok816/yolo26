@@ -35,17 +35,6 @@
   line-height: 1.35;
 }
 
-.bbox-workspace__refresh {
-  border: 1px solid #9aa6bc;
-  background: #f7f9fc;
-  color: #2b3c56;
-  border-radius: 8px;
-  padding: 8px 11px;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .bbox-workspace__toolbar {
   border: 1px solid #d9e0eb;
   border-radius: 10px;
@@ -81,14 +70,12 @@
   cursor: pointer;
 }
 
-.bbox-workspace__toolbar button:disabled,
-.bbox-workspace__refresh:disabled {
+.bbox-workspace__toolbar button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.bbox-workspace__toolbar button:hover:not(:disabled),
-.bbox-workspace__refresh:hover:not(:disabled) {
+.bbox-workspace__toolbar button:hover:not(:disabled) {
   border-color: #71829f;
 }
 
@@ -213,10 +200,6 @@
 
   .bbox-workspace__header {
     flex-direction: column;
-  }
-
-  .bbox-workspace__refresh {
-    width: 100%;
   }
 
   .bbox-workspace__label-input {
