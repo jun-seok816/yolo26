@@ -1317,11 +1317,12 @@ export class BoundingBoxWorkspaceData {
   /**
    * @param p_x 이미지 기준 X
    * @param p_y 이미지 기준 Y
-   * @returns 히트된 박스 또는 null
-   * @description 지정 좌표에 포함된 최상단 박스를 탐색
+   * @returns 히트된 박스 목록(위에서 아래 순서)
+   * @description 지정 좌표에 포함된 박스를 Z-order 기준으로 수집
    */
-  private im_findHitBox(p_x: number, p_y: number): BoundingBox | null {
+  private im_findHitBoxes(p_x: number, p_y: number): BoundingBox[] {
     const lv_currentBoxes = this.pt_currentBoxes;
+    const lv_hitBoxes: BoundingBox[] = [];
 
     for (let lv_i = lv_currentBoxes.length - 1; lv_i >= 0; lv_i -= 1) {
       const lv_box = lv_currentBoxes[lv_i];
@@ -1331,11 +1332,41 @@ export class BoundingBoxWorkspaceData {
         p_y >= lv_box.y &&
         p_y <= lv_box.y + lv_box.h
       ) {
-        return lv_box;
+        lv_hitBoxes.push(lv_box);
       }
     }
 
-    return null;
+    return lv_hitBoxes;
+  }
+
+  /**
+   * @param p_x 이미지 기준 X
+   * @param p_y 이미지 기준 Y
+   * @returns 히트된 박스 또는 null
+   * @description 지정 좌표에 포함된 최상단 박스를 탐색
+   */
+  private im_findHitBox(p_x: number, p_y: number): BoundingBox | null {
+    return this.im_findHitBoxes(p_x, p_y)[0] || null;
+  }
+
+  /**
+   * @param p_hitBoxes 겹쳐 선택 가능한 박스 목록(위에서 아래 순서)
+   * @returns 다음으로 선택할 박스 또는 null
+   * @description Alt+클릭 시 현재 선택 기준으로 겹친 박스를 순환 선택
+   */
+  private im_getNextOverlappingSelection(p_hitBoxes: BoundingBox[]): BoundingBox | null {
+    if (p_hitBoxes.length === 0) return null;
+
+    if (!this.iv_selectedBoxId) {
+      return p_hitBoxes[0];
+    }
+
+    const lv_selectedIndex = p_hitBoxes.findIndex((p_box) => p_box.id === this.iv_selectedBoxId);
+    if (lv_selectedIndex < 0) {
+      return p_hitBoxes[0];
+    }
+
+    return p_hitBoxes[(lv_selectedIndex + 1) % p_hitBoxes.length] || null;
   }
 
   /**
@@ -1350,7 +1381,18 @@ export class BoundingBoxWorkspaceData {
 
     this.iv_hoverPoint = lv_point;
     const lv_forceDrawing = p_event.shiftKey;
+    const lv_cycleOverlapSelection = p_event.altKey;
     const lv_selectedBox = this.pt_selectedBox;
+    const lv_hitBoxes = this.im_findHitBoxes(lv_point.x, lv_point.y);
+
+    if (lv_cycleOverlapSelection) {
+      const lv_nextBox = this.im_getNextOverlappingSelection(lv_hitBoxes);
+      this.iv_selectedBoxId = lv_nextBox?.id || null;
+      this.iv_dragState = { mode: "idle" };
+      this.iv_draftBox = null;
+      this.im_notifyChange();
+      return;
+    }
 
     if (!lv_forceDrawing) {
       const lv_resizeHandle = this.im_findResizeHandle(lv_point.x, lv_point.y, lv_selectedBox);
@@ -1367,7 +1409,7 @@ export class BoundingBoxWorkspaceData {
       }
     }
 
-    const lv_hitBox = this.im_findHitBox(lv_point.x, lv_point.y);
+    const lv_hitBox = lv_hitBoxes[0] || null;
     if (lv_hitBox && !lv_forceDrawing) {
       this.iv_selectedBoxId = lv_hitBox.id;
       this.iv_dragState = {

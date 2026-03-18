@@ -144,6 +144,9 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           <strong>겹쳐 그리기:</strong> <kbd>Shift</kbd> + 드래그
         </p>
         <p>
+          <strong>겹친 박스 선택:</strong> <kbd>Alt</kbd> + 클릭
+        </p>
+        <p>
           <strong>박스 이동:</strong> 박스 내부 드래그
         </p>
         <p>
