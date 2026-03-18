@@ -1,17 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./BoundingBoxWorkspaceModuleTestPage.scss";
-import BoundingBoxWorkspaceModule, {
-  type BoundingBoxWorkspaceModuleChange,
-  type BoundingBoxWorkspaceModuleImage,
-} from "./BoundingBoxWorkspaceModule";
+import ImageLabeler, {
+  type ImageLabelerBoxInput,
+  type ImageLabelerChange,
+  type ImageLabelerImage,
+} from "../../../../packages/react-image-labeler/src";
+import "../../../../packages/react-image-labeler/src/style.css";
 
 const gf_isImageFile = (p_file: File) => p_file.type.startsWith("image/");
 
 export default function BoundingBoxWorkspaceModuleTestPage() {
-  const [lv_image, setImage] = useState<BoundingBoxWorkspaceModuleImage | null>(null);
-  const [lv_labelState, setLabelState] = useState<BoundingBoxWorkspaceModuleChange | null>(null);
+  const [lv_image, setImage] = useState<ImageLabelerImage | null>(null);
+  const [lv_value, setValue] = useState<ImageLabelerBoxInput[]>([]);
+  const [lv_categories, setCategories] = useState<string[]>(["fish", "other"]);
+  const [lv_labelState, setLabelState] = useState<ImageLabelerChange | null>(null);
   const [lv_statusMessage, setStatusMessage] = useState(
-    "디버깅할 이미지 한 장을 선택하면 props 기반 Bounding Box 모듈이 아래에 렌더됩니다."
+    "디버깅할 이미지 한 장을 선택하면 npm 패키지 형태의 ImageLabeler가 아래에 렌더됩니다."
   );
   const lv_objectUrlRef = useRef<string | null>(null);
 
@@ -33,6 +37,8 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
     const lv_imageFile = p_files.find(gf_isImageFile);
     if (!lv_imageFile) {
       setImage(null);
+      setValue([]);
+      setCategories(["fish", "other"]);
       setLabelState(null);
       setStatusMessage("선택된 이미지가 없습니다. png/jpg/webp 등의 파일을 선택해주세요.");
       return;
@@ -44,10 +50,12 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
     const lv_nextImage = {
       id: `test_image_${lv_imageFile.name}_${lv_imageFile.lastModified}`,
       src: lv_url,
-      relativePath: lv_imageFile.name,
-    } satisfies BoundingBoxWorkspaceModuleImage;
+      name: lv_imageFile.name,
+    } satisfies ImageLabelerImage;
 
     setImage(lv_nextImage);
+    setValue([]);
+    setCategories(["fish", "other"]);
     setStatusMessage(`props 이미지 1개를 모듈에 전달했습니다. (${lv_imageFile.name})`);
   };
 
@@ -59,6 +67,8 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
   const lf_clearImages = () => {
     lf_revokeObjectUrl();
     setImage(null);
+    setValue([]);
+    setCategories(["fish", "other"]);
     setLabelState(null);
     setStatusMessage("디버깅용 이미지를 비웠습니다.");
   };
@@ -86,13 +96,31 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
 
         {lv_image && (
           <ul className="bbox-module-test__image-list">
-            <li>{typeof lv_image === "string" ? lv_image : lv_image.relativePath || lv_image.src}</li>
+            <li>{typeof lv_image === "string" ? lv_image : lv_image.name || lv_image.src}</li>
           </ul>
         )}
       </section>
 
       <div className="bbox-module-test__workspace">
-        <BoundingBoxWorkspaceModule p_image={lv_image} p_onChange={setLabelState} />
+        <ImageLabeler
+          image={lv_image}
+          value={lv_value}
+          categories={lv_categories}
+          onChange={(p_payload) => {
+            setLabelState(p_payload);
+            setCategories(p_payload.categories);
+            setValue(
+              p_payload.value.map((p_box) => ({
+                id: p_box.id,
+                label: p_box.label,
+                x: p_box.pixel.x,
+                y: p_box.pixel.y,
+                w: p_box.pixel.w,
+                h: p_box.pixel.h,
+              }))
+            );
+          }}
+        />
       </div>
 
       <section className="bbox-module-test__panel">

@@ -8,6 +8,7 @@ module.exports = {
 
   // --- 해상도 & 별칭 ---
   resolve: {
+    modules: [path.resolve(__dirname, "node_modules"), "node_modules"],
     extensions: [
       ".tsx",
       ".ts",

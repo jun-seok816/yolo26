@@ -146,3 +146,6 @@ back-end/dist/db.js
 back-end/dist/db.js.map
 
 example
+packages/*/dist
+packages/*/node_modules
+packages/*/*.tgz
