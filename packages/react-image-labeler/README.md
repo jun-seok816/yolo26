@@ -1,17 +1,17 @@
-# react-image-labeler
+# @junseok816/react-image-labeler
 
 단일 이미지를 대상으로 바운딩 박스 라벨링을 수행할 수 있는 React 컴포넌트입니다.
 
 ## 설치
 
 ```bash
-npm install react-image-labeler
+npm install @junseok816/react-image-labeler
 ```
 
 앱에서 번들된 스타일시트를 한 번만 import 해주세요.
 
 ```ts
-import "react-image-labeler/style.css";
+import "@junseok816/react-image-labeler/style.css";
 ```
 
 ## 사용 예시
@@ -21,8 +21,8 @@ import { useMemo, useState } from "react";
 import ImageLabeler, {
   type ImageLabelerBoxInput,
   type ImageLabelerChange,
-} from "react-image-labeler";
-import "react-image-labeler/style.css";
+} from "@junseok816/react-image-labeler";
+import "@junseok816/react-image-labeler/style.css";
 
 type Item = {
   id: string;
@@ -100,4 +100,4 @@ export default function Example({ images }: { images: Item[] }) {
 
 - 여러 이미지를 다룰 경우 상위 앱이 현재 인덱스와 이미지별 라벨 상태를 관리하고, 이 컴포넌트에는 현재 이미지 한 장만 전달하는 방식이 적합합니다.
 - 이 패키지는 데이터셋 페이지 이동, 저장, 서버 동기화 같은 외부 상태 관리는 직접 처리하지 않습니다.
-- 다른 npm 패키지명으로 배포할 예정이면 `package.json`의 이름을 알맞게 수정하세요.
+- 현재 예시는 `@junseok816/react-image-labeler` 기준입니다. 다른 계정이나 이름으로 배포할 예정이면 `package.json`과 import 예시를 함께 수정하세요.

@@ -34,6 +34,10 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.m?js$/,
+        resolve: { fullySpecified: false },
+      },
+      {
         // JS / JSX
         test: /\.jsx?$/,
         exclude: /node_modules/,

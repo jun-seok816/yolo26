@@ -1,5 +1,5 @@
 {
-  "name": "react-image-labeler",
+  "name": "@junseok816/react-image-labeler",
   "version": "0.1.0",
   "description": "React image labeling component for drawing, selecting, moving, and resizing bounding boxes on a single image.",
   "type": "module",
@@ -23,8 +23,8 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node ./scripts/copy-assets.mjs",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../front-end/node_modules/typescript/bin/tsc -p tsconfig.build.json && node ./scripts/copy-assets.mjs",
+    "check": "node ../../front-end/node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -37,6 +37,9 @@
   "peerDependencies": {
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/react": "^18.2.73",
