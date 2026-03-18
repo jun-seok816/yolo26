@@ -15,55 +15,49 @@ export type BoundingBoxWorkspaceModuleImage =
 
 type BoundingBoxWorkspaceModuleProps = {
   p_image?: BoundingBoxWorkspaceModuleImage | null;
-  p_images?: readonly BoundingBoxWorkspaceModuleImage[];
 };
 
-const gf_getFallbackRelativePath = (p_src: string, p_index: number) => {
+const gf_getFallbackRelativePath = (p_src: string) => {
   const lv_src = p_src.trim();
-  if (!lv_src) return `prop_image_${p_index + 1}`;
+  if (!lv_src) return "prop_image";
 
   const lv_withoutHash = lv_src.split("#")[0] || "";
   const lv_withoutQuery = lv_withoutHash.split("?")[0] || "";
   const lv_fileName = lv_withoutQuery.split("/").filter((p_segment) => p_segment.length > 0).pop();
-  return lv_fileName && lv_fileName.length > 0 ? lv_fileName : `prop_image_${p_index + 1}`;
+  return lv_fileName && lv_fileName.length > 0 ? lv_fileName : "prop_image";
 };
 
-const gf_normalizeModuleImages = (
-  p_images: readonly BoundingBoxWorkspaceModuleImage[]
-): BoundingBoxWorkspaceImageItem[] => {
-  return p_images
-    .map((p_image, p_index) => {
-      if (typeof p_image === "string") {
-        const lv_url = p_image.trim();
-        if (!lv_url) return null;
+const gf_normalizeModuleImage = (
+  p_image: BoundingBoxWorkspaceModuleImage | null
+): BoundingBoxWorkspaceImageItem | null => {
+  if (!p_image) return null;
 
-        const lv_relativePath = gf_getFallbackRelativePath(lv_url, p_index);
-        return {
-          id: `prop_image_${p_index}_${lv_relativePath}`,
-          relativePath: lv_relativePath,
-          url: lv_url,
-        };
-      }
+  if (typeof p_image === "string") {
+    const lv_url = p_image.trim();
+    if (!lv_url) return null;
 
-      const lv_url = p_image.src.trim();
-      if (!lv_url) return null;
+    const lv_relativePath = gf_getFallbackRelativePath(lv_url);
+    return {
+      id: `prop_image_${lv_relativePath}`,
+      relativePath: lv_relativePath,
+      url: lv_url,
+    };
+  }
 
-      const lv_relativePath = p_image.relativePath?.trim() || gf_getFallbackRelativePath(lv_url, p_index);
-      const lv_id = p_image.id?.trim() || `prop_image_${p_index}_${lv_relativePath}`;
+  const lv_url = p_image.src.trim();
+  if (!lv_url) return null;
 
-      return {
-        id: lv_id,
-        relativePath: lv_relativePath,
-        url: lv_url,
-      };
-    })
-    .filter((p_image): p_image is BoundingBoxWorkspaceImageItem => p_image !== null);
+  const lv_relativePath = p_image.relativePath?.trim() || gf_getFallbackRelativePath(lv_url);
+  const lv_id = p_image.id?.trim() || `prop_image_${lv_relativePath}`;
+
+  return {
+    id: lv_id,
+    relativePath: lv_relativePath,
+    url: lv_url,
+  };
 };
 
-export default function BoundingBoxWorkspaceModule({
-  p_image = null,
-  p_images,
-}: BoundingBoxWorkspaceModuleProps) {
+export default function BoundingBoxWorkspaceModule({ p_image = null }: BoundingBoxWorkspaceModuleProps) {
   const [, setRenderTick] = useState(0);
   const [lv_workspace] = useState(
     () =>
@@ -79,9 +73,9 @@ export default function BoundingBoxWorkspaceModule({
   }, [lv_workspace]);
 
   useEffect(() => {
-    const lv_imageInputs = p_images || (p_image ? [p_image] : []);
-    lv_workspace.im_setProvidedImages(gf_normalizeModuleImages(lv_imageInputs));
-  }, [p_image, p_images, lv_workspace]);
+    const lv_normalizedImage = gf_normalizeModuleImage(p_image);
+    lv_workspace.im_setProvidedImages(lv_normalizedImage ? [lv_normalizedImage] : []);
+  }, [p_image, lv_workspace]);
 
   return <BoundingBoxWorkspace p_workspace={lv_workspace} p_shouldAutoLoadImageList={false} />;
 }
