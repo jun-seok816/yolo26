@@ -1,0 +1,132 @@
+.bbox-module-box-list {
+  width: 100%;
+  height: calc(100vh - 32px);
+  border: 1px solid #d2dce9;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bbox-module-box-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bbox-module-box-list__title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  color: #20324d;
+}
+
+.bbox-module-box-list__meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #455c7b;
+}
+
+.bbox-module-box-list__empty {
+  margin: 0;
+  padding: 14px 12px;
+  border: 1px dashed #d8e1ee;
+  border-radius: 10px;
+  background: #f8fbff;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #61758f;
+}
+
+.bbox-module-box-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bbox-module-box-list__item {
+  border: 1px solid #d4deea;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bbox-module-box-list__item:hover {
+  border-color: #b7c6dc;
+  background: #f5f9ff;
+}
+
+.bbox-module-box-list__item.is-selected {
+  border-color: #f29a2f;
+  background: #fff8ef;
+  box-shadow: 0 0 0 2px rgba(242, 154, 47, 0.16);
+}
+
+.bbox-module-box-list__item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bbox-module-box-list__item-label {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #223754;
+}
+
+.bbox-module-box-list__item-size {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #61758f;
+}
+
+.bbox-module-box-list__item-coords {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #526884;
+  word-break: break-word;
+}
+
+.bbox-module-box-list__item-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bbox-module-box-list__item-actions button {
+  border: 1px solid #d3a3aa;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #7c2d39;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bbox-module-box-list__item-actions button:hover {
+  border-color: #bb7f89;
+}
+
+@media (max-width: 980px) {
+  .bbox-module-box-list {
+    height: auto;
+    min-height: 280px;
+  }
+}

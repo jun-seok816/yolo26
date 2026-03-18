@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./BoundingBoxWorkspaceModuleTestPage.scss";
 import BoundingBoxWorkspaceModule, {
+  type BoundingBoxWorkspaceModuleChange,
   type BoundingBoxWorkspaceModuleImage,
 } from "./BoundingBoxWorkspaceModule";
 
@@ -8,6 +9,7 @@ const gf_isImageFile = (p_file: File) => p_file.type.startsWith("image/");
 
 export default function BoundingBoxWorkspaceModuleTestPage() {
   const [lv_image, setImage] = useState<BoundingBoxWorkspaceModuleImage | null>(null);
+  const [lv_labelState, setLabelState] = useState<BoundingBoxWorkspaceModuleChange | null>(null);
   const [lv_statusMessage, setStatusMessage] = useState(
     "디버깅할 이미지 한 장을 선택하면 props 기반 Bounding Box 모듈이 아래에 렌더됩니다."
   );
@@ -31,6 +33,7 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
     const lv_imageFile = p_files.find(gf_isImageFile);
     if (!lv_imageFile) {
       setImage(null);
+      setLabelState(null);
       setStatusMessage("선택된 이미지가 없습니다. png/jpg/webp 등의 파일을 선택해주세요.");
       return;
     }
@@ -56,6 +59,7 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
   const lf_clearImages = () => {
     lf_revokeObjectUrl();
     setImage(null);
+    setLabelState(null);
     setStatusMessage("디버깅용 이미지를 비웠습니다.");
   };
 
@@ -88,8 +92,15 @@ export default function BoundingBoxWorkspaceModuleTestPage() {
       </section>
 
       <div className="bbox-module-test__workspace">
-        <BoundingBoxWorkspaceModule p_image={lv_image} />
+        <BoundingBoxWorkspaceModule p_image={lv_image} p_onChange={setLabelState} />
       </div>
+
+      <section className="bbox-module-test__panel">
+        <h2 className="bbox-module-test__result-title">Returned Label State</h2>
+        <pre className="bbox-module-test__payload">
+          {JSON.stringify(lv_labelState, null, 2) || "null"}
+        </pre>
+      </section>
     </section>
   );
 }

@@ -435,6 +435,94 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @param p_categories 외부에서 전달한 카테고리 목록
+   * @param p_boxes 현재 이미지에 적용할 박스 목록
+   * @returns 워크스페이스에 반영할 카테고리 목록
+   * @description 외부 props 상태를 반영할 때 카테고리/박스 라벨을 함께 정규화
+   */
+  private im_buildProvidedLabelCategories(p_categories: readonly string[], p_boxes: readonly BoundingBox[]) {
+    const lv_categoryMap = new Map<string, string>();
+    const lf_pushCategory = (p_name: string) => {
+      const lv_name = p_name.trim();
+      if (!lv_name) return;
+
+      const lv_key = lv_name.toLowerCase();
+      if (lv_categoryMap.has(lv_key)) return;
+      lv_categoryMap.set(lv_key, lv_name);
+    };
+
+    p_categories.forEach(lf_pushCategory);
+    p_boxes.forEach((p_box) => {
+      lf_pushCategory(p_box.label);
+    });
+
+    const lv_categories = Array.from(lv_categoryMap.values());
+    return lv_categories.length > 0 ? lv_categories : [...DEFAULT_LABEL_CATEGORIES];
+  }
+
+  /**
+   * @param p_boxes 외부에서 전달한 현재 이미지 박스 목록
+   * @param p_categories 외부에서 전달한 카테고리 목록
+   * @description 단일 이미지 모듈에서 현재 이미지의 라벨링 상태를 동기화
+   */
+  public im_setProvidedCurrentImageLabelState(p_boxes: BoundingBox[], p_categories: string[] = []) {
+    const lv_currentImage = this.pt_currentImage;
+    const lv_hasNaturalSize = this.iv_naturalSize.width > 0 && this.iv_naturalSize.height > 0;
+    const lv_nextBoxes = p_boxes
+      .map((p_box, p_index) => {
+        const lv_label = p_box.label.trim();
+        if (!lv_label) return null;
+
+        const lv_id = p_box.id.trim() || `provided_box_${p_index + 1}`;
+        const lv_x = lv_hasNaturalSize ? gf_clamp(p_box.x, 0, this.iv_naturalSize.width) : Math.max(0, p_box.x);
+        const lv_y = lv_hasNaturalSize ? gf_clamp(p_box.y, 0, this.iv_naturalSize.height) : Math.max(0, p_box.y);
+        const lv_w = lv_hasNaturalSize
+          ? gf_clamp(p_box.w, MIN_BOX_SIZE, Math.max(MIN_BOX_SIZE, this.iv_naturalSize.width - lv_x))
+          : Math.max(MIN_BOX_SIZE, p_box.w);
+        const lv_h = lv_hasNaturalSize
+          ? gf_clamp(p_box.h, MIN_BOX_SIZE, Math.max(MIN_BOX_SIZE, this.iv_naturalSize.height - lv_y))
+          : Math.max(MIN_BOX_SIZE, p_box.h);
+
+        return {
+          id: lv_id,
+          x: lv_x,
+          y: lv_y,
+          w: lv_w,
+          h: lv_h,
+          label: lv_label,
+        } satisfies BoundingBox;
+      })
+      .filter((p_box): p_box is BoundingBox => p_box !== null);
+
+    const lv_nextCategories = this.im_buildProvidedLabelCategories(p_categories, lv_nextBoxes);
+    this.iv_labelCategories = lv_nextCategories;
+    if (!lv_nextCategories.includes(this.iv_labelInput)) {
+      this.iv_labelInput = lv_nextCategories[0] || DEFAULT_LABEL;
+    }
+    this.iv_categoryDraftName = "";
+    this.iv_categoryStatusMessage = "";
+    this.iv_selectedBoxId = null;
+    this.iv_draftBox = null;
+    this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
+
+    if (lv_currentImage) {
+      this.iv_boxesByImage = {
+        ...this.iv_boxesByImage,
+        [lv_currentImage.id]: lv_nextBoxes,
+      };
+    }
+
+    const lv_maxBoxSequence = lv_nextBoxes.reduce((p_max, p_box) => {
+      const lv_match = p_box.id.match(/(\d+)$/);
+      if (!lv_match) return p_max;
+      return Math.max(p_max, Number(lv_match[1]));
+    }, 0);
+    this.iv_boxSequence = Math.max(this.iv_boxSequence, lv_nextBoxes.length + 1, lv_maxBoxSequence + 1);
+    this.im_notifyChange();
+  }
+
+  /**
    * @param p_label 라벨 입력 문자열
    * @description 신규 박스 기본 라벨을 변경
    */
