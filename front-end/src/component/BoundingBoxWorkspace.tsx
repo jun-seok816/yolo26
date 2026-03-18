@@ -4,14 +4,19 @@ import { BoundingBoxWorkspaceData } from "@jsLib/class/BoundingBoxWorkspaceData"
 
 type BoundingBoxWorkspaceProps = {
   p_workspace: BoundingBoxWorkspaceData;
+  p_shouldAutoLoadImageList?: boolean;
 };
 
-export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspaceProps) {
+export default function BoundingBoxWorkspace({
+  p_workspace,
+  p_shouldAutoLoadImageList = true,
+}: BoundingBoxWorkspaceProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (!p_shouldAutoLoadImageList) return;
     void p_workspace.im_loadImageList();
-  }, [p_workspace]);
+  }, [p_shouldAutoLoadImageList, p_workspace]);
 
   useEffect(() => {
     p_workspace.im_bindCanvasElement(canvasRef.current);

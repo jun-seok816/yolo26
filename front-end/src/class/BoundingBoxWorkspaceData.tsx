@@ -12,6 +12,8 @@ type RouterImageItem = {
   url: string;
 };
 
+export type BoundingBoxWorkspaceImageItem = RouterImageItem;
+
 export type BoundingBox = {
   id: string;
   x: number;
@@ -355,6 +357,26 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @param p_images 비교할 이미지 목록
+   * @returns 현재 워크스페이스와 동일한 이미지 목록인지 여부
+   * @description 외부 props 기반 이미지 반영 시 불필요한 재로딩을 방지
+   */
+  private im_hasSameImageList(p_images: BoundingBoxWorkspaceImageItem[]) {
+    if (this.iv_images.length !== p_images.length) return false;
+
+    return this.iv_images.every((p_image, p_index) => {
+      const lv_targetImage = p_images[p_index];
+      if (!lv_targetImage) return false;
+
+      return (
+        p_image.id === lv_targetImage.id &&
+        p_image.relativePath === lv_targetImage.relativePath &&
+        p_image.url === lv_targetImage.url
+      );
+    });
+  }
+
+  /**
    * @param p_canvasElement 캔버스 DOM 엘리먼트
    * @description 캔버스 참조를 바인딩하고 즉시 렌더
    */
@@ -363,6 +385,53 @@ export class BoundingBoxWorkspaceData {
     this.iv_canvasElement = p_canvasElement;
     this.im_syncCanvasCursor();
     this.im_drawScene();
+  }
+
+  /**
+   * @param p_images 외부 컴포넌트에서 전달한 이미지 목록
+   * @description 라우터 fetch 대신 props 기반 이미지 목록을 워크스페이스에 반영
+   */
+  public im_setProvidedImages(p_images: BoundingBoxWorkspaceImageItem[]) {
+    const lv_nextImages = p_images.filter(
+      (p_image) =>
+        p_image.id.trim().length > 0 &&
+        p_image.relativePath.trim().length > 0 &&
+        p_image.url.trim().length > 0
+    );
+    if (this.im_hasSameImageList(lv_nextImages)) return;
+
+    this.im_revokeLocalImageObjectUrls();
+
+    const lv_prevCurrentImageId = this.pt_currentImage?.id || null;
+    const lv_nextBoxesByImage: Record<string, BoundingBox[]> = {};
+    lv_nextImages.forEach((p_image) => {
+      const lv_existingBoxes = this.iv_boxesByImage[p_image.id];
+      if (!lv_existingBoxes) return;
+      lv_nextBoxesByImage[p_image.id] = lv_existingBoxes;
+    });
+
+    const lv_nextCurrentIndex = lv_prevCurrentImageId
+      ? lv_nextImages.findIndex((p_image) => p_image.id === lv_prevCurrentImageId)
+      : 0;
+
+    this.iv_images = lv_nextImages;
+    this.iv_currentIndex = lv_nextCurrentIndex >= 0 ? lv_nextCurrentIndex : 0;
+    this.iv_boxesByImage = lv_nextBoxesByImage;
+    this.iv_selectedBoxId = null;
+    this.iv_draftBox = null;
+    this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
+
+    if (lv_nextImages.length === 0) {
+      this.iv_loadedImage = null;
+      this.iv_naturalSize = { width: 0, height: 0 };
+      this.iv_isLoadingImage = false;
+      this.iv_statusMessage = "외부 이미지를 전달하면 캔버스가 활성화됩니다.";
+      this.im_notifyChange();
+      return;
+    }
+
+    this.im_startCurrentImageLoading();
   }
 
   /**
