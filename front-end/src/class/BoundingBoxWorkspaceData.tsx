@@ -32,10 +32,13 @@ type CanvasSize = {
   scale: number;
 };
 
+type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
 type DragState =
   | { mode: "idle" }
   | { mode: "drawing"; startX: number; startY: number }
-  | { mode: "moving"; boxId: string; offsetX: number; offsetY: number };
+  | { mode: "moving"; boxId: string; offsetX: number; offsetY: number }
+  | { mode: "resizing"; boxId: string; handle: ResizeHandle; initialBox: BoundingBox };
 
 type ExportSplit = "train" | "valid" | "test";
 
@@ -67,6 +70,8 @@ const MAX_CANVAS_HEIGHT = 640;
 const MIN_ZOOM_SCALE = 0.2;
 const MAX_ZOOM_SCALE = 5;
 const ZOOM_STEP = 0.2;
+const RESIZE_HANDLE_SIZE = 10;
+const RESIZE_HANDLE_HIT_SIZE = 18;
 const DEFAULT_SPLIT_TRAIN_PERCENT = 70;
 const DEFAULT_SPLIT_VALID_PERCENT = 20;
 const IMPORT_IMAGE_FILE_EXTENSION_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
@@ -106,6 +111,7 @@ export class BoundingBoxWorkspaceData {
   private iv_canvasElement: HTMLCanvasElement | null = null;
   private iv_loadedImage: HTMLImageElement | null = null;
   private iv_dragState: DragState = { mode: "idle" };
+  private iv_hoverPoint: { x: number; y: number } | null = null;
   private iv_boxSequence = 1;
   private iv_imageLoadSequence = 0;
   private iv_zoomScale = 1;
@@ -334,6 +340,7 @@ export class BoundingBoxWorkspaceData {
    * @description 내부 상태 변경 후 화면 렌더를 트리거
    */
   private im_notifyChange() {
+    this.im_syncCanvasCursor();
     this.iv_onChange();
   }
 
@@ -354,6 +361,7 @@ export class BoundingBoxWorkspaceData {
   public im_bindCanvasElement(p_canvasElement: HTMLCanvasElement | null) {
     if (this.iv_canvasElement === p_canvasElement) return;
     this.iv_canvasElement = p_canvasElement;
+    this.im_syncCanvasCursor();
     this.im_drawScene();
   }
 
@@ -957,6 +965,157 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @param p_box 리사이즈 대상 박스
+   * @returns 리사이즈 핸들 중심 좌표 목록
+   */
+  private im_getResizeHandlePoints(p_box: BoundingBox) {
+    return [
+      { handle: "nw" as const, x: p_box.x, y: p_box.y },
+      { handle: "n" as const, x: p_box.x + p_box.w / 2, y: p_box.y },
+      { handle: "ne" as const, x: p_box.x + p_box.w, y: p_box.y },
+      { handle: "e" as const, x: p_box.x + p_box.w, y: p_box.y + p_box.h / 2 },
+      { handle: "se" as const, x: p_box.x + p_box.w, y: p_box.y + p_box.h },
+      { handle: "s" as const, x: p_box.x + p_box.w / 2, y: p_box.y + p_box.h },
+      { handle: "sw" as const, x: p_box.x, y: p_box.y + p_box.h },
+      { handle: "w" as const, x: p_box.x, y: p_box.y + p_box.h / 2 },
+    ];
+  }
+
+  /**
+   * @param p_x 이미지 기준 X
+   * @param p_y 이미지 기준 Y
+   * @param p_box 리사이즈 핸들을 판별할 박스
+   * @returns 히트된 리사이즈 핸들 또는 null
+   */
+  private im_findResizeHandle(p_x: number, p_y: number, p_box: BoundingBox | null): ResizeHandle | null {
+    if (!p_box || this.pt_canvasSize.scale <= 0) return null;
+
+    const lv_halfHitSize = (RESIZE_HANDLE_HIT_SIZE / this.pt_canvasSize.scale) / 2;
+
+    for (const p_handlePoint of this.im_getResizeHandlePoints(p_box)) {
+      if (
+        p_x >= p_handlePoint.x - lv_halfHitSize &&
+        p_x <= p_handlePoint.x + lv_halfHitSize &&
+        p_y >= p_handlePoint.y - lv_halfHitSize &&
+        p_y <= p_handlePoint.y + lv_halfHitSize
+      ) {
+        return p_handlePoint.handle;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * @param p_handle 리사이즈 핸들 위치
+   * @returns 해당 핸들에 대응하는 CSS cursor 값
+   */
+  private im_getResizeCursor(p_handle: ResizeHandle): string {
+    if (p_handle === "n" || p_handle === "s") return "ns-resize";
+    if (p_handle === "e" || p_handle === "w") return "ew-resize";
+    if (p_handle === "ne" || p_handle === "sw") return "nesw-resize";
+    return "nwse-resize";
+  }
+
+  /**
+   * @description 현재 드래그/호버 상태에 따라 캔버스 커서를 동기화
+   */
+  private im_syncCanvasCursor() {
+    const lv_canvasElement = this.iv_canvasElement;
+    if (!lv_canvasElement) return;
+
+    if (!this.iv_loadedImage || this.iv_isLoadingImage) {
+      lv_canvasElement.style.cursor = "default";
+      return;
+    }
+
+    if (this.iv_dragState.mode === "drawing") {
+      lv_canvasElement.style.cursor = "crosshair";
+      return;
+    }
+
+    if (this.iv_dragState.mode === "moving") {
+      lv_canvasElement.style.cursor = "grabbing";
+      return;
+    }
+
+    if (this.iv_dragState.mode === "resizing") {
+      lv_canvasElement.style.cursor = this.im_getResizeCursor(this.iv_dragState.handle);
+      return;
+    }
+
+    if (this.iv_hoverPoint) {
+      const lv_handle = this.im_findResizeHandle(
+        this.iv_hoverPoint.x,
+        this.iv_hoverPoint.y,
+        this.pt_selectedBox
+      );
+      if (lv_handle) {
+        lv_canvasElement.style.cursor = this.im_getResizeCursor(lv_handle);
+        return;
+      }
+
+      if (this.im_findHitBox(this.iv_hoverPoint.x, this.iv_hoverPoint.y)) {
+        lv_canvasElement.style.cursor = "grab";
+        return;
+      }
+    }
+
+    lv_canvasElement.style.cursor = "crosshair";
+  }
+
+  /**
+   * @param p_initialBox 리사이즈 시작 시점 박스
+   * @param p_handle 사용 중인 핸들
+   * @param p_x 현재 이미지 기준 X
+   * @param p_y 현재 이미지 기준 Y
+   * @returns 리사이즈 계산이 반영된 박스
+   */
+  private im_buildResizedBox(
+    p_initialBox: BoundingBox,
+    p_handle: ResizeHandle,
+    p_x: number,
+    p_y: number
+  ): BoundingBox {
+    let lv_left = p_initialBox.x;
+    let lv_top = p_initialBox.y;
+    let lv_right = p_initialBox.x + p_initialBox.w;
+    let lv_bottom = p_initialBox.y + p_initialBox.h;
+
+    if (p_handle.includes("w")) {
+      lv_left = gf_clamp(p_x, 0, Math.max(0, lv_right - MIN_BOX_SIZE));
+    }
+
+    if (p_handle.includes("e")) {
+      lv_right = gf_clamp(
+        p_x,
+        Math.min(this.iv_naturalSize.width, lv_left + MIN_BOX_SIZE),
+        this.iv_naturalSize.width
+      );
+    }
+
+    if (p_handle.includes("n")) {
+      lv_top = gf_clamp(p_y, 0, Math.max(0, lv_bottom - MIN_BOX_SIZE));
+    }
+
+    if (p_handle.includes("s")) {
+      lv_bottom = gf_clamp(
+        p_y,
+        Math.min(this.iv_naturalSize.height, lv_top + MIN_BOX_SIZE),
+        this.iv_naturalSize.height
+      );
+    }
+
+    return {
+      ...p_initialBox,
+      x: lv_left,
+      y: lv_top,
+      w: Math.max(MIN_BOX_SIZE, lv_right - lv_left),
+      h: Math.max(MIN_BOX_SIZE, lv_bottom - lv_top),
+    };
+  }
+
+  /**
    * @param p_boxId 선택할 박스 ID (null이면 선택 해제)
    * @description 외부 리스트뷰 클릭 기반으로 박스 선택 상태를 변경
    */
@@ -988,6 +1147,7 @@ export class BoundingBoxWorkspaceData {
 
     this.iv_currentIndex = lv_nextIndex;
     this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
     this.iv_draftBox = null;
     this.iv_selectedBoxId = null;
     this.im_startCurrentImageLoading();
@@ -1031,6 +1191,7 @@ export class BoundingBoxWorkspaceData {
       this.iv_selectedBoxId = null;
       this.iv_draftBox = null;
       this.iv_dragState = { mode: "idle" };
+      this.iv_hoverPoint = null;
 
       if (lv_nextImages.length > 0) {
         this.iv_statusMessage = `라우터에서 이미지 ${lv_nextImages.length}개를 불러왔습니다.`;
@@ -1049,6 +1210,7 @@ export class BoundingBoxWorkspaceData {
       this.iv_selectedBoxId = null;
       this.iv_draftBox = null;
       this.iv_dragState = { mode: "idle" };
+      this.iv_hoverPoint = null;
       this.iv_loadedImage = null;
       this.iv_naturalSize = { width: 0, height: 0 };
       this.iv_isLoadingImage = false;
@@ -1067,6 +1229,7 @@ export class BoundingBoxWorkspaceData {
     const lv_currentLoadSequence = this.iv_imageLoadSequence;
 
     this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
     this.iv_draftBox = null;
     this.iv_selectedBoxId = null;
 
@@ -1177,7 +1340,7 @@ export class BoundingBoxWorkspaceData {
 
   /**
    * @param p_event 캔버스 마우스 다운 이벤트
-   * @description 박스 선택/이동 시작 또는 신규 박스 드로잉 시작
+   * @description 박스 선택/이동/리사이즈 시작 또는 신규 박스 드로잉 시작
    */
   public im_handleMouseDown(p_event: React.MouseEvent<HTMLCanvasElement>) {
     if (!this.pt_currentImage || !this.iv_loadedImage) return;
@@ -1185,7 +1348,25 @@ export class BoundingBoxWorkspaceData {
     const lv_point = this.im_getImagePointFromMouse(p_event);
     if (!lv_point) return;
 
+    this.iv_hoverPoint = lv_point;
     const lv_forceDrawing = p_event.shiftKey;
+    const lv_selectedBox = this.pt_selectedBox;
+
+    if (!lv_forceDrawing) {
+      const lv_resizeHandle = this.im_findResizeHandle(lv_point.x, lv_point.y, lv_selectedBox);
+      if (lv_resizeHandle && lv_selectedBox) {
+        this.iv_selectedBoxId = lv_selectedBox.id;
+        this.iv_dragState = {
+          mode: "resizing",
+          boxId: lv_selectedBox.id,
+          handle: lv_resizeHandle,
+          initialBox: { ...lv_selectedBox },
+        };
+        this.im_notifyChange();
+        return;
+      }
+    }
+
     const lv_hitBox = this.im_findHitBox(lv_point.x, lv_point.y);
     if (lv_hitBox && !lv_forceDrawing) {
       this.iv_selectedBoxId = lv_hitBox.id;
@@ -1218,14 +1399,18 @@ export class BoundingBoxWorkspaceData {
 
   /**
    * @param p_event 캔버스 마우스 무브 이벤트
-   * @description 드로잉 중 임시 박스 갱신 또는 선택 박스 이동
+   * @description 드로잉 중 임시 박스 갱신, 선택 박스 이동, 리사이즈를 처리
    */
   public im_handleMouseMove(p_event: React.MouseEvent<HTMLCanvasElement>) {
-    const lv_dragState = this.iv_dragState;
-    if (lv_dragState.mode === "idle") return;
-
     const lv_point = this.im_getImagePointFromMouse(p_event);
     if (!lv_point) return;
+
+    this.iv_hoverPoint = lv_point;
+    const lv_dragState = this.iv_dragState;
+    if (lv_dragState.mode === "idle") {
+      this.im_syncCanvasCursor();
+      return;
+    }
 
     if (lv_dragState.mode === "drawing") {
       const lv_x = Math.min(lv_dragState.startX, lv_point.x);
@@ -1266,18 +1451,31 @@ export class BoundingBoxWorkspaceData {
         })
       );
       this.im_notifyChange();
+      return;
+    }
+
+    if (lv_dragState.mode === "resizing") {
+      this.im_updateCurrentBoxes((p_prevBoxes) =>
+        p_prevBoxes.map((p_box) => {
+          if (p_box.id !== lv_dragState.boxId) return p_box;
+          return this.im_buildResizedBox(lv_dragState.initialBox, lv_dragState.handle, lv_point.x, lv_point.y);
+        })
+      );
+      this.iv_selectedBoxId = lv_dragState.boxId;
+      this.im_notifyChange();
     }
   }
 
   /**
    * @param p_event 캔버스 마우스 업 이벤트
-   * @description 드로잉 종료 후 최소 크기 이상이면 박스를 확정
+   * @description 드로잉/이동/리사이즈를 종료하고 신규 드로잉이면 박스를 확정
    */
   public im_handleMouseUp(p_event: React.MouseEvent<HTMLCanvasElement>) {
     const lv_dragState = this.iv_dragState;
     if (lv_dragState.mode === "idle") return;
 
     const lv_point = this.im_getImagePointFromMouse(p_event);
+    this.iv_hoverPoint = lv_point;
 
     if (lv_dragState.mode === "drawing" && lv_point) {
       const lv_x = Math.min(lv_dragState.startX, lv_point.x);
@@ -1314,7 +1512,8 @@ export class BoundingBoxWorkspaceData {
    */
   public im_handleMouseLeave(p_event: React.MouseEvent<HTMLCanvasElement>) {
     this.im_handleMouseUp(p_event);
-    this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
+    this.im_syncCanvasCursor();
   }
 
   /**
@@ -1716,6 +1915,21 @@ export class BoundingBoxWorkspaceData {
       lv_ctx.fillStyle = "#ffffff";
       lv_ctx.textBaseline = "middle";
       lv_ctx.fillText(lv_labelText, lv_x + 6, lv_labelY + lv_labelHeight / 2);
+
+      if (lv_isSelected) {
+        const lv_handleHalfSize = RESIZE_HANDLE_SIZE / 2;
+        lv_ctx.fillStyle = "#ffffff";
+        lv_ctx.strokeStyle = "#ff9800";
+        lv_ctx.lineWidth = 1.5;
+
+        this.im_getResizeHandlePoints(p_box).forEach((p_handlePoint) => {
+          const lv_handleX = p_handlePoint.x * lv_canvasSize.scale - lv_handleHalfSize;
+          const lv_handleY = p_handlePoint.y * lv_canvasSize.scale - lv_handleHalfSize;
+
+          lv_ctx.fillRect(lv_handleX, lv_handleY, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+          lv_ctx.strokeRect(lv_handleX, lv_handleY, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+        });
+      }
     });
 
     if (this.iv_draftBox) {
@@ -1741,6 +1955,7 @@ export class BoundingBoxWorkspaceData {
     this.iv_canvasElement = null;
     this.iv_loadedImage = null;
     this.iv_dragState = { mode: "idle" };
+    this.iv_hoverPoint = null;
     this.iv_draftBox = null;
     this.iv_isImporting = false;
     this.iv_isExporting = false;

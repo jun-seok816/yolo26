@@ -147,6 +147,9 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           <strong>박스 이동:</strong> 박스 내부 드래그
         </p>
         <p>
+          <strong>박스 리사이즈:</strong> 선택 박스 핸들 드래그
+        </p>
+        <p>
           <strong>박스 삭제:</strong> <kbd>Delete</kbd>
         </p>
         <p>
