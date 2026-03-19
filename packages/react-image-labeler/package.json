@@ -1,6 +1,6 @@
 {
   "name": "@junseok816/react-image-labeler",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React image labeling component for drawing, selecting, moving, and resizing bounding boxes on a single image.",
   "type": "module",
   "main": "./dist/index.js",

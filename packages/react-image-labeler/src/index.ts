@@ -8,4 +8,4 @@ export type {
   ImageLabelerImage,
   ImageLabelerProps,
   ImageLabelerResolvedImage,
-} from "./ImageLabeler";
+} from "./ImageLabeler.types";

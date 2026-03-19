@@ -11,7 +11,7 @@
   "author": "hdr",
   "license": "ISC",
   "dependencies": {
-    "@junseok816/react-image-labeler": "^0.1.0",
+    "@junseok816/react-image-labeler": "^0.1.1",
     "@portone/browser-sdk": "^0.0.24",
     "axios": "^1.10.0",
     "bootstrap": "^5.3.7",
