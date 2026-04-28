@@ -21,11 +21,15 @@ export default function ImageLabeler({
   className,
   style,
 }: ImageLabelerProps) {
-  const [lv_renderTick, setRenderTick] = useState(0);
+  const [, setRenderTick] = useState(0);
+  const [lv_changeTick, setChangeTick] = useState(0);
   const [lv_controller] = useState(
     () =>
-      new ImageLabelerController(() => {
+      new ImageLabelerController((p_shouldEmitChange = true) => {
         setRenderTick((p_prev) => p_prev + 1);
+        if (p_shouldEmitChange) {
+          setChangeTick((p_prev) => p_prev + 1);
+        }
       })
   );
   const lv_workspace = lv_controller.pt_workspace;
@@ -43,7 +47,7 @@ export default function ImageLabeler({
 
   useEffect(() => {
     lv_controller.im_emitChange(onChange);
-  }, [lv_renderTick, lv_controller, onChange]);
+  }, [lv_changeTick, lv_controller, onChange]);
 
   return (
     <div className={lv_rootClassName} style={style}>

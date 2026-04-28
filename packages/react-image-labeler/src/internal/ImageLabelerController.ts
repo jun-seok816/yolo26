@@ -21,7 +21,7 @@ export class ImageLabelerController {
   private iv_lastEmittedExternalStateSignature = "";
   private iv_lastAppliedExternalSignature = "";
 
-  constructor(p_onWorkspaceChange: () => void = () => {}) {
+  constructor(p_onWorkspaceChange: (p_shouldEmitChange?: boolean) => void = () => {}) {
     this.iv_workspace = new BoundingBoxWorkspaceData(p_onWorkspaceChange);
   }
 

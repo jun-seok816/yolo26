@@ -122,9 +122,9 @@ export class BoundingBoxWorkspaceData {
   private iv_localImageObjectUrls: string[] = [];
   private iv_isImporting = false;
   private iv_isExporting = false;
-  private iv_onChange: () => void;
+  private iv_onChange: (p_shouldEmitChange?: boolean) => void;
 
-  constructor(p_onChange: () => void = () => {}) {
+  constructor(p_onChange: (p_shouldEmitChange?: boolean) => void = () => {}) {
     this.iv_onChange = p_onChange;
   }
 
@@ -362,9 +362,9 @@ export class BoundingBoxWorkspaceData {
   /**
    * @description 내부 상태 변경 후 화면 렌더를 트리거
    */
-  private im_notifyChange() {
+  private im_notifyChange(p_shouldEmitChange = true) {
     this.im_syncCanvasCursor();
-    this.iv_onChange();
+    this.iv_onChange(p_shouldEmitChange);
   }
 
   /**
@@ -1568,7 +1568,7 @@ export class BoundingBoxWorkspaceData {
       this.iv_selectedBoxId = lv_nextBox?.id || null;
       this.iv_dragState = { mode: "idle" };
       this.iv_draftBox = null;
-      this.im_notifyChange();
+      this.im_notifyChange(false);
       return;
     }
 
@@ -1582,7 +1582,7 @@ export class BoundingBoxWorkspaceData {
           handle: lv_resizeHandle,
           initialBox: { ...lv_selectedBox },
         };
-        this.im_notifyChange();
+        this.im_notifyChange(false);
         return;
       }
     }
@@ -1596,7 +1596,7 @@ export class BoundingBoxWorkspaceData {
         offsetX: lv_point.x - lv_hitBox.x,
         offsetY: lv_point.y - lv_hitBox.y,
       };
-      this.im_notifyChange();
+      this.im_notifyChange(false);
       return;
     }
 
@@ -1614,7 +1614,7 @@ export class BoundingBoxWorkspaceData {
       h: 0,
       label: this.iv_labelInput,
     };
-    this.im_notifyChange();
+    this.im_notifyChange(false);
   }
 
   /**
@@ -1646,7 +1646,7 @@ export class BoundingBoxWorkspaceData {
         h: lv_h,
         label: this.iv_labelInput,
       };
-      this.im_notifyChange();
+      this.im_notifyChange(false);
       return;
     }
 
@@ -1670,7 +1670,7 @@ export class BoundingBoxWorkspaceData {
           };
         })
       );
-      this.im_notifyChange();
+      this.im_notifyChange(false);
       return;
     }
 
@@ -1682,7 +1682,7 @@ export class BoundingBoxWorkspaceData {
         })
       );
       this.iv_selectedBoxId = lv_dragState.boxId;
-      this.im_notifyChange();
+      this.im_notifyChange(false);
     }
   }
 
