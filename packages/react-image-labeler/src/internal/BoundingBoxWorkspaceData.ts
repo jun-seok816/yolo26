@@ -290,6 +290,27 @@ export class BoundingBoxWorkspaceData {
   }
 
   /**
+   * @description 현재 확대 가능 여부 반환
+   */
+  public get pt_canZoomIn(): boolean {
+    return this.iv_loadedImage !== null && this.iv_zoomScale < MAX_ZOOM_SCALE;
+  }
+
+  /**
+   * @description 현재 축소 가능 여부 반환
+   */
+  public get pt_canZoomOut(): boolean {
+    return this.iv_loadedImage !== null && this.iv_zoomScale > MIN_ZOOM_SCALE;
+  }
+
+  /**
+   * @description 확대 배율 초기화 가능 여부 반환
+   */
+  public get pt_canResetZoom(): boolean {
+    return this.iv_loadedImage !== null && Math.abs(this.iv_zoomScale - 1) >= 0.0001;
+  }
+
+  /**
    * @description Dataset import progress state
    */
   public get pt_isImporting(): boolean {
@@ -1713,22 +1734,6 @@ export class BoundingBoxWorkspaceData {
     this.im_handleMouseUp(p_event);
     this.iv_hoverPoint = null;
     this.im_syncCanvasCursor();
-  }
-
-  /**
-   * @param p_event 캔버스 휠 이벤트
-   * @description 마우스 휠로 확대/축소를 제어
-   */
-  public im_handleCanvasWheel(p_event: React.WheelEvent<HTMLCanvasElement>) {
-    if (!this.iv_loadedImage) return;
-
-    p_event.preventDefault();
-    if (p_event.deltaY < 0) {
-      this.im_zoomIn();
-      return;
-    }
-
-    this.im_zoomOut();
   }
 
   /**

@@ -236,6 +236,22 @@
   font-size: 13px;
 }
 
+.bbox-workspace__zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bbox-workspace__zoom-controls button {
+  min-width: 36px;
+  text-align: center;
+}
+
+.bbox-workspace__zoom-readout {
+  min-width: 62px !important;
+  font-variant-numeric: tabular-nums;
+}
+
 .bbox-workspace__category-editor {
   display: inline-flex;
   align-items: center;

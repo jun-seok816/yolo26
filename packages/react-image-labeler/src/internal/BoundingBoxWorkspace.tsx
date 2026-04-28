@@ -60,8 +60,33 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
             ))}
           </select>
         </label>
-
-
+        <div className="bbox-workspace__zoom-controls" aria-label="Zoom controls">
+          <button
+            type="button"
+            onClick={() => p_workspace.im_zoomOut()}
+            disabled={!p_workspace.pt_canZoomOut}
+            aria-label="Zoom out"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            className="bbox-workspace__zoom-readout"
+            onClick={() => p_workspace.im_resetZoom()}
+            disabled={!p_workspace.pt_canResetZoom}
+            aria-label="Reset zoom"
+          >
+            {p_workspace.pt_zoomPercent}%
+          </button>
+          <button
+            type="button"
+            onClick={() => p_workspace.im_zoomIn()}
+            disabled={!p_workspace.pt_canZoomIn}
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {p_workspace.pt_categoryStatusMessage && (
@@ -76,7 +101,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           onMouseMove={(p_event) => p_workspace.im_handleMouseMove(p_event)}
           onMouseUp={(p_event) => p_workspace.im_handleMouseUp(p_event)}
           onMouseLeave={(p_event) => p_workspace.im_handleMouseLeave(p_event)}
-          onWheel={(p_event) => p_workspace.im_handleCanvasWheel(p_event)}
         />
         {p_workspace.pt_isLoadingImage && <div className="bbox-workspace__loading">Loading image...</div>}
       </div>
@@ -104,7 +128,7 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           <strong>Delete:</strong> <kbd>Delete</kbd>
         </p>
         <p>
-          <strong>Zoom:</strong> Mouse wheel
+          <strong>Zoom:</strong> Toolbar buttons
         </p>
       </div>
     </section>
