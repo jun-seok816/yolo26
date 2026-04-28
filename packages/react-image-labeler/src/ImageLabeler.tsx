@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import BoundingBoxBoxList from "./internal/BoundingBoxBoxList";
-import BoundingBoxWorkspace from "./internal/BoundingBoxWorkspace";
-import { ImageLabelerController } from "./internal/ImageLabelerController";
-import type { ImageLabelerProps } from "./ImageLabeler.types";
+import BoundingBoxBoxList from "./internal/BoundingBoxBoxList.js";
+import BoundingBoxWorkspace from "./internal/BoundingBoxWorkspace.js";
+import { ImageLabelerController } from "./internal/ImageLabelerController.js";
+import type { ImageLabelerProps } from "./ImageLabeler.types.js";
 
 export type {
   ImageLabelerBoxInput,
@@ -11,7 +11,7 @@ export type {
   ImageLabelerImage,
   ImageLabelerProps,
   ImageLabelerResolvedImage,
-} from "./ImageLabeler.types";
+} from "./ImageLabeler.types.js";
 
 export default function ImageLabeler({
   image = null,

@@ -1,5 +1,5 @@
-export { default as ImageLabeler } from "./ImageLabeler";
-export { default } from "./ImageLabeler";
+export { default as ImageLabeler } from "./ImageLabeler.js";
+export { default } from "./ImageLabeler.js";
 
 export type {
   ImageLabelerBoxInput,
@@ -8,4 +8,4 @@ export type {
   ImageLabelerImage,
   ImageLabelerProps,
   ImageLabelerResolvedImage,
-} from "./ImageLabeler.types";
+} from "./ImageLabeler.types.js";

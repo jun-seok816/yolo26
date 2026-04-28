@@ -2,12 +2,12 @@ import type {
   ImageLabelerBoxInput,
   ImageLabelerChange,
   ImageLabelerImage,
-} from "../ImageLabeler.types";
+} from "../ImageLabeler.types.js";
 import {
   type BoundingBox,
   BoundingBoxWorkspaceData,
   type BoundingBoxWorkspaceImageItem,
-} from "./BoundingBoxWorkspaceData";
+} from "./BoundingBoxWorkspaceData.js";
 
 type ImageLabelerExternalState = {
   image: ImageLabelerImage | null;

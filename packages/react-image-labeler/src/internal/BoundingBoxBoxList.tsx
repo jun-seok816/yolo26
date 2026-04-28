@@ -1,5 +1,5 @@
 import React from "react";
-import { BoundingBoxWorkspaceData } from "./BoundingBoxWorkspaceData";
+import { BoundingBoxWorkspaceData } from "./BoundingBoxWorkspaceData.js";
 
 type BoundingBoxBoxListProps = {
   p_workspace: BoundingBoxWorkspaceData;

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { BoundingBoxWorkspaceData } from "./BoundingBoxWorkspaceData";
+import { BoundingBoxWorkspaceData } from "./BoundingBoxWorkspaceData.js";
 
 type BoundingBoxWorkspaceProps = {
   p_workspace: BoundingBoxWorkspaceData;
@@ -61,33 +61,6 @@ export default function BoundingBoxWorkspace({ p_workspace }: BoundingBoxWorkspa
           </select>
         </label>
 
-        <div className="bbox-workspace__category-editor">
-          <input
-            type="text"
-            value={p_workspace.pt_categoryDraftName}
-            onChange={(p_event) => p_workspace.im_setCategoryDraftName(p_event.currentTarget.value)}
-            onKeyDown={(p_event) => {
-              if (p_event.key !== "Enter") return;
-              p_event.preventDefault();
-              p_workspace.im_addCategory();
-            }}
-            placeholder="New category"
-            maxLength={30}
-          />
-          <button type="button" onClick={() => p_workspace.im_addCategory()}>
-            Add category
-          </button>
-          <button
-            type="button"
-            className="bbox-workspace__danger"
-            disabled={
-              p_workspace.pt_labelCategories.length <= 1 || p_workspace.pt_selectedCategoryUsageCount > 0
-            }
-            onClick={() => p_workspace.im_deleteSelectedCategory()}
-          >
-            Delete selected category
-          </button>
-        </div>
 
       </div>
 
